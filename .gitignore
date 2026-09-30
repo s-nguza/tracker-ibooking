@@ -1,0 +1,31 @@
+# Dependencies & build output
+node_modules
+dist
+dist-ssr
+
+# Env files (keep .env.example)
+.env
+.env.*
+!.env.example
+*.local
+
+# Firebase
+.firebase/
+emulator-data/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+database-debug.log*
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.sw?
