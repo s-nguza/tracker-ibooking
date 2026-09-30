@@ -6,8 +6,8 @@ currently track orders on paper. Barbers and hairdressers come in a later phase.
 ## Stack
 
 - React + TypeScript + Vite, styled with Tailwind CSS, routed with React Router
-- Firebase: Firestore, Authentication, Hosting
-- State: Firestore realtime listeners in custom hooks, plus React Context for auth and the
+- Firebase: Authentication, Hosting (database choice comes in Phase 1)
+- State: React hooks + Context for auth and the
   current business
 
 ## Getting started
@@ -15,11 +15,11 @@ currently track orders on paper. Barbers and hairdressers come in a later phase.
 ```bash
 npm install
 cp .env.example .env.local   # leave VITE_USE_EMULATORS=true for local dev
-npm run emulators            # terminal 1: Auth + Firestore emulators, UI at http://127.0.0.1:4000
+npm run emulators            # terminal 1: Auth emulator, UI at http://127.0.0.1:4000
 npm run dev                  # terminal 2: app at http://localhost:5173
 ```
 
-The emulators need Java 11 or newer. Local dev uses the offline project ID
+Local dev uses the offline project ID
 `demo-tracker-ibooking`, so you don't need a real Firebase project until you deploy.
 Emulator data is saved to `emulator-data/` when you stop the emulators (gitignored).
 
@@ -46,6 +46,6 @@ src/
   domain/       Pure business logic (money, statuses, message templates).
                 No React, Firebase or DOM imports, so a native app can reuse it.
   features/     One folder per feature (auth, menu, orders, board), holding its
-                screens, hooks and Firestore access
+                screens, hooks and data access
   lib/          Third-party setup (firebase.ts)
 ```
