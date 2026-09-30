@@ -1,4 +1,4 @@
-// Pure business logic lives in src/domain: no React, no Firebase, no DOM,
+// Pure business logic lives in src/domain: no React, no backend SDK, no DOM,
 // so it can be reused unchanged by a future native app.
 
 /** All money is stored as integer cents. */

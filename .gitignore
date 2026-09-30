@@ -3,19 +3,10 @@ node_modules
 dist
 dist-ssr
 
-# Env files (keep .env.example)
+# Env files
 .env
 .env.*
-!.env.example
 *.local
-
-# Firebase
-.firebase/
-emulator-data/
-firebase-debug.log*
-firestore-debug.log*
-ui-debug.log*
-database-debug.log*
 
 # Logs
 logs
