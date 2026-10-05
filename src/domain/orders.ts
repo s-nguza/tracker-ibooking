@@ -165,3 +165,29 @@ export function orderDisplayName(order: Pick<Order, 'customerName' | 'channel'>)
 export function initialStatus(channel: OrderChannel): OrderStatus {
   return channel === 'whatsapp' ? 'awaiting' : 'confirmed';
 }
+
+/** Turns saved order lines back into quantities, e.g. to edit them in the menu picker. */
+export function toOrderLines(lines: readonly OrderLine[]): OrderLines {
+  return Object.fromEntries(lines.map((l) => [l.itemId, l.quantity]));
+}
+
+/**
+ * Replaces the items on a quote that the customer hasn't accepted yet. The
+ * quote clock restarts, because they need the new quote before saying yes.
+ * Orders past the quote stage, or edits that leave no items, are unchanged.
+ */
+export function requoteOrder(
+  order: Order,
+  menu: readonly MenuItem[],
+  lines: OrderLines,
+  now: number,
+): Order {
+  if (order.status !== 'awaiting' || orderItemCount(lines) === 0) return order;
+  return {
+    ...order,
+    lines: buildOrderLines(menu, lines),
+    totalCents: orderTotalCents(menu, lines),
+    readyMinutes: estimateReadyMinutes(menu, lines),
+    statusChangedAt: now,
+  };
+}

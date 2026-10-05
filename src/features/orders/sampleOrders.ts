@@ -50,6 +50,9 @@ export function createSampleOrders(now: number): Order[] {
     sample(now, 15, 'call', 'Nomvula K.', [line('vetkoek', 2)], 'confirmed', 9),
     sample(now, 16, 'walk-in', undefined, [line('vetkoek', 1)], 'cancelled', 6),
     sample(now, 17, 'walk-in', undefined, [line('kota', 2)], 'confirmed', 1),
-    sample(now, 18, 'whatsapp', 'Sipho D.', [line('kota', 2)], 'awaiting', 0),
+    {
+      ...sample(now, 18, 'whatsapp', 'Sipho D.', [line('kota', 2)], 'awaiting', 0),
+      phone: '+27821234567',
+    },
   ];
 }

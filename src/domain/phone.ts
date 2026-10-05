@@ -13,3 +13,9 @@ export function normalizeZaPhone(input: string): string | null {
   if (digits.length === 11 && digits.startsWith('27')) return `+${digits}`;
   return null;
 }
+
+/** Shows an E.164 SA number the way people write it locally: "082 123 4567". */
+export function formatZaPhone(e164: string): string {
+  const match = /^\+27(\d{2})(\d{3})(\d{4})$/.exec(e164);
+  return match ? `0${match[1]} ${match[2]} ${match[3]}` : e164;
+}

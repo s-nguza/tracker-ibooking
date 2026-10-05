@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { Order } from '../../domain/orders';
+import type { MenuItem, Order, OrderLines } from '../../domain/orders';
 
 /** What the new-order screen supplies; the store fills in the number, status and times. */
 export type NewOrder = Omit<
@@ -14,6 +14,8 @@ export interface OrdersStore {
   addOrder: (order: NewOrder) => Order;
   advance: (orderId: string) => void;
   cancel: (orderId: string) => void;
+  /** Changes the items on a quote that is still awaiting the customer's yes. */
+  editItems: (orderId: string, menu: readonly MenuItem[], lines: OrderLines) => void;
 }
 
 export const OrdersContext = createContext<OrdersStore | null>(null);

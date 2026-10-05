@@ -4,6 +4,7 @@ import {
   cancelOrder,
   initialStatus,
   nextQueueNumber,
+  requoteOrder,
   type Order,
 } from '../../domain/orders';
 import { OrdersContext, type NewOrder, type OrdersStore } from './ordersContext';
@@ -39,6 +40,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     },
     advance: (orderId) => update(orderId, advanceOrder),
     cancel: (orderId) => update(orderId, cancelOrder),
+    editItems: (orderId, menu, lines) =>
+      update(orderId, (order, now) => requoteOrder(order, menu, lines, now)),
   };
 
   return <OrdersContext value={store}>{children}</OrdersContext>;

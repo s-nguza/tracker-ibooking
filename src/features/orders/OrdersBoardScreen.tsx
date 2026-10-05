@@ -1,27 +1,23 @@
-import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { orderReadyMessage, whatsAppLink } from '../../domain/messages';
 import { byQueueNumber, minutesBetween, type Order, type OrderStatus } from '../../domain/orders';
-import { CardButton, OrderCard, type BadgeTone } from './OrderCard';
+import { CardButton, OrderCard } from './OrderCard';
 import { useOrders } from './ordersContext';
+import { BOARD_TABS, isBoardTab, type BadgeTone, type BoardTab } from './orderStatusUi';
 import { BUSINESS_NAME } from './sampleOrders';
 import { useNow } from './useNow';
-
-type BoardTab = Extract<OrderStatus, 'confirmed' | 'preparing' | 'ready' | 'done'>;
-
-const TABS: { value: BoardTab; label: string }[] = [
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'preparing', label: 'Preparing' },
-  { value: 'ready', label: 'Ready' },
-  { value: 'done', label: 'Done' },
-];
 
 /** After this long in the queue, the "Waiting" badge turns warmer to draw attention. */
 const LONG_WAIT_MINUTES = 5;
 
 export function OrdersBoardScreen() {
   const { orders } = useOrders();
-  const [tab, setTab] = useState<BoardTab>('confirmed');
+  // The tab lives in the URL so returning from an order lands on the same tab.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: BoardTab = isBoardTab(tabParam) ? tabParam : 'confirmed';
+  const setTab = (next: BoardTab) =>
+    setSearchParams(next === 'confirmed' ? {} : { tab: next }, { replace: true });
   const now = useNow();
 
   const inStatus = (status: OrderStatus) =>
@@ -40,7 +36,7 @@ export function OrdersBoardScreen() {
         aria-label="Order status"
         className="grid grid-cols-4 gap-2 border-b border-stone-200 bg-white px-3 py-3"
       >
-        {TABS.map(({ value, label }) => {
+        {BOARD_TABS.map(({ value, label }) => {
           const selected = value === tab;
           return (
             <button
@@ -154,11 +150,9 @@ function ConfirmedTab({
   );
 }
 
-/** A WhatsApp quote: tap it to record the customer's answer. */
+/** A WhatsApp quote waiting for the customer's yes. Tap it to resend, confirm, edit or cancel. */
 function AwaitingCard({ order, now }: { order: Order; now: number }) {
-  const { advance, cancel } = useOrders();
-  const [open, setOpen] = useState(false);
-  const quoted = minutesBetween(order.createdAt, now);
+  const quoted = minutesBetween(order.statusChangedAt, now);
 
   return (
     <OrderCard
@@ -167,26 +161,7 @@ function AwaitingCard({ order, now }: { order: Order; now: number }) {
       badge={{ label: 'Awaiting yes', tone: 'brand' }}
       detail={quoted === 0 ? 'quoted just now' : `quoted ${quoted} min ago`}
       showTotal={false}
-      action={
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-          className="h-11 px-2 text-sm font-semibold text-stone-500 hover:text-stone-800"
-        >
-          {open ? 'Close' : 'Reply?'}
-        </button>
-      }
-    >
-      {open && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <CardButton tone="brand" onClick={() => advance(order.id)}>
-            They said yes
-          </CardButton>
-          <CardButton onClick={() => cancel(order.id)}>Cancel order</CardButton>
-        </div>
-      )}
-    </OrderCard>
+    />
   );
 }
 

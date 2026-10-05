@@ -1,15 +1,10 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
+import { ChevronRightIcon } from '../../components/icons';
 import { describeLines } from '../../domain/messages';
 import { formatCents } from '../../domain/money';
 import { orderDisplayName, type Order } from '../../domain/orders';
-
-export type BadgeTone = 'muted' | 'brand' | 'alert';
-
-const BADGE_TONES: Record<BadgeTone, string> = {
-  muted: 'bg-stone-100 text-stone-500',
-  brand: 'bg-brand-100 text-brand-700',
-  alert: 'bg-red-100 text-red-700',
-};
+import { BADGE_TONES, type BadgeTone } from './orderStatusUi';
 
 const CARD_STYLES = {
   active: 'border border-stone-200 border-l-4 border-l-brand-300 bg-white',
@@ -24,10 +19,13 @@ interface OrderCardProps {
   /** Shown after the item list, e.g. "quoted just now". */
   detail?: string;
   showTotal?: boolean;
+  /** Button beside the card (Start, Ready…). Kept outside the link so both stay tappable. */
   action?: ReactNode;
+  /** Extra content under the card, also outside the link. */
   children?: ReactNode;
 }
 
+/** An order on the board. Tapping it opens the order's detail screen. */
 export function OrderCard({
   order,
   badge,
@@ -38,9 +36,12 @@ export function OrderCard({
   children,
 }: OrderCardProps) {
   return (
-    <li className={`rounded-2xl p-4 ${CARD_STYLES[look]}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+    <li className={`rounded-2xl ${CARD_STYLES[look]}`}>
+      <div className="flex items-start">
+        <Link
+          to={`/orders/${order.id}`}
+          className="min-w-0 flex-1 rounded-2xl p-4 hover:bg-stone-50/60"
+        >
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h3 className="font-bold">
               #{order.queueNumber} · {orderDisplayName(order)}
@@ -56,10 +57,12 @@ export function OrderCard({
             {detail && ` · ${detail}`}
           </p>
           {showTotal && <p className="mt-2 font-bold">{formatCents(order.totalCents)}</p>}
+        </Link>
+        <div className="shrink-0 py-4 pr-4">
+          {action ?? <ChevronRightIcon className="mt-1 text-stone-400" />}
         </div>
-        {action && <div className="shrink-0">{action}</div>}
       </div>
-      {children}
+      {children && <div className="-mt-2 px-4 pb-4">{children}</div>}
     </li>
   );
 }
