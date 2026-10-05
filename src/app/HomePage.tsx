@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { formatCents } from '../domain/money';
 
 export function HomePage() {
@@ -11,6 +12,12 @@ export function HomePage() {
           <dd>{formatCents(4550)}</dd>
         </div>
       </dl>
+      <Link
+        to="/orders/new"
+        className="bg-brand-600 hover:bg-brand-700 flex h-14 items-center justify-center rounded-2xl text-lg font-bold text-white"
+      >
+        New order
+      </Link>
     </main>
   );
 }
