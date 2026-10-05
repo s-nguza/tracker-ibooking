@@ -75,3 +75,93 @@ export function estimateReadyMinutes(menu: readonly MenuItem[], lines: OrderLine
   const slowest = Math.max(...selected.map(({ item }) => item.prepMinutes));
   return Math.ceil((slowest + HANDOVER_BUFFER_MINUTES) / 5) * 5;
 }
+
+/**
+ * Order lifecycle:
+ *   awaiting  → quoted to the customer (e.g. on WhatsApp), waiting for their "yes"
+ *   confirmed → customer committed, waiting for the kitchen to start
+ *   preparing → being made
+ *   ready     → waiting for pickup
+ *   done      → collected
+ * Any order that is not done can be cancelled.
+ */
+export type OrderStatus = 'awaiting' | 'confirmed' | 'preparing' | 'ready' | 'done' | 'cancelled';
+
+export interface OrderLine {
+  itemId: string;
+  name: string;
+  quantity: number;
+  priceCents: Cents;
+}
+
+export interface Order {
+  id: string;
+  queueNumber: number;
+  channel: OrderChannel;
+  customerName?: string;
+  /** E.164, when the customer gave a number. */
+  phone?: string;
+  /** Name and price are copied at order time so later menu changes don't rewrite history. */
+  lines: OrderLine[];
+  totalCents: Cents;
+  readyMinutes: number;
+  status: OrderStatus;
+  createdAt: number;
+  /** When the order entered its current status; drives "Waiting 9 min". */
+  statusChangedAt: number;
+}
+
+const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  awaiting: 'confirmed',
+  confirmed: 'preparing',
+  preparing: 'ready',
+  ready: 'done',
+};
+
+/** Moves the order one step along its lifecycle. Done and cancelled orders are unchanged. */
+export function advanceOrder(order: Order, now: number): Order {
+  const next = NEXT_STATUS[order.status];
+  return next ? { ...order, status: next, statusChangedAt: now } : order;
+}
+
+export function cancelOrder(order: Order, now: number): Order {
+  if (order.status === 'done' || order.status === 'cancelled') return order;
+  return { ...order, status: 'cancelled', statusChangedAt: now };
+}
+
+export function buildOrderLines(menu: readonly MenuItem[], lines: OrderLines): OrderLine[] {
+  return selectedItems(menu, lines).map(({ item, quantity }) => ({
+    itemId: item.id,
+    name: item.name,
+    quantity,
+    priceCents: item.priceCents,
+  }));
+}
+
+/** Oldest first, so the queue is served in order. */
+export function byQueueNumber(a: Order, b: Order): number {
+  return a.queueNumber - b.queueNumber;
+}
+
+export function nextQueueNumber(orders: readonly Order[], firstNumber = 1): number {
+  return orders.reduce((max, order) => Math.max(max, order.queueNumber + 1), firstNumber);
+}
+
+/** Whole minutes between two timestamps, never negative. */
+export function minutesBetween(from: number, to: number): number {
+  return Math.max(0, Math.floor((to - from) / 60_000));
+}
+
+/** Who to call out: their name, or the channel when we don't have one. */
+export function orderDisplayName(order: Pick<Order, 'customerName' | 'channel'>): string {
+  if (order.customerName) return order.customerName;
+  return { call: 'Caller', whatsapp: 'WhatsApp', 'walk-in': 'Walk-in' }[order.channel];
+}
+
+/**
+ * WhatsApp orders start as a quote: the customer still has to reply "yes".
+ * Calls and walk-ins have already committed by the time we enter them.
+ */
+export function initialStatus(channel: OrderChannel): OrderStatus {
+  return channel === 'whatsapp' ? 'awaiting' : 'confirmed';
+}

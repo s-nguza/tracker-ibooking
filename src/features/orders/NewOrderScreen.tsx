@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { CloseIcon } from '../../components/icons';
 import {
+  buildOrderLines,
   estimateReadyMinutes,
   orderItemCount,
   orderTotalCents,
-  selectedItems,
   setLineQuantity,
+  type Order,
   type OrderChannel,
   type OrderLines,
 } from '../../domain/orders';
@@ -14,27 +15,23 @@ import { ChannelPicker } from './ChannelPicker';
 import { CustomerCard } from './CustomerCard';
 import { contactProblem, type CustomerContact } from './customerContact';
 import { MenuPicker } from './MenuPicker';
-import { OrderConfirmed, type ConfirmedOrder } from './OrderConfirmed';
+import { normalizeZaPhone } from '../../domain/phone';
+import { OrderConfirmed } from './OrderConfirmed';
 import { OrderFooter } from './OrderFooter';
+import { useOrders } from './ordersContext';
 import { SAMPLE_MENU } from './sampleMenu';
-
-// Until orders are persisted, numbering starts here and counts up per session.
-const FIRST_QUEUE_NUMBER = 17;
 
 const EMPTY_CONTACT: CustomerContact = { name: '', phone: '' };
 
 export function NewOrderScreen() {
   const menu = SAMPLE_MENU;
-  const [queueNumber, setQueueNumber] = useState(FIRST_QUEUE_NUMBER);
+  const { nextQueueNumber, addOrder } = useOrders();
   const [channel, setChannel] = useState<OrderChannel>('walk-in');
   const [contact, setContact] = useState<CustomerContact>(EMPTY_CONTACT);
   const [lines, setLines] = useState<OrderLines>({});
-  const [confirmed, setConfirmed] = useState<ConfirmedOrder | null>(null);
+  const [confirmed, setConfirmed] = useState<Order | null>(null);
 
-  const selected = selectedItems(menu, lines).map(({ item, quantity }) => ({
-    name: item.name,
-    quantity,
-  }));
+  const selected = buildOrderLines(menu, lines);
   const itemCount = orderItemCount(lines);
   const totalCents = orderTotalCents(menu, lines);
   const readyMinutes = estimateReadyMinutes(menu, lines);
@@ -43,19 +40,18 @@ export function NewOrderScreen() {
 
   function confirm() {
     if (blocker) return;
-    setConfirmed({
+    const order = addOrder({
       channel,
-      queueNumber,
       customerName: contact.name.trim() || undefined,
-      phone: contact.phone.trim(),
+      phone: normalizeZaPhone(contact.phone) ?? undefined,
       lines: selected,
       totalCents,
       readyMinutes,
     });
+    setConfirmed(order);
   }
 
   function startNextOrder() {
-    setQueueNumber((n) => n + 1);
     setContact(EMPTY_CONTACT);
     setLines({});
     setConfirmed(null);
@@ -83,7 +79,7 @@ export function NewOrderScreen() {
             <CustomerCard
               key={channel}
               channel={channel}
-              queueNumber={queueNumber}
+              queueNumber={nextQueueNumber}
               contact={contact}
               onChange={setContact}
             />
