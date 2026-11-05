@@ -1,76 +1,103 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ChevronRightIcon } from '../../components/icons';
+import { CARD } from '../../components/styles';
 import { describeLines } from '../../domain/messages';
 import { formatCents } from '../../domain/money';
 import { orderDisplayName, type Order } from '../../domain/orders';
 import { BADGE_TONES, type BadgeTone } from './orderStatusUi';
-
-const CARD_STYLES = {
-  active: 'border border-stone-200 border-l-4 border-l-brand-300 bg-white',
-  pending: 'border border-dashed border-brand-300 bg-white/60',
-  muted: 'border border-stone-200 bg-white/60 text-stone-500',
-};
+import { OrderTags } from './OrderTags';
 
 interface OrderCardProps {
   order: Order;
-  badge: { label: string; tone: BadgeTone };
-  look?: keyof typeof CARD_STYLES;
+  badge: { label: ReactNode; tone: BadgeTone };
+  /** A red tag under the items, for when the pill is already showing something else. */
+  alert?: string;
+  /** A line under the items, e.g. why the order is paused. */
+  note?: ReactNode;
+  /** Where the order sits in the queue, on the tab where staff pick what to start next. */
+  priority?: { label: string; urgent: boolean };
+  /** Muted cards are out of the kitchen's hands; pending ones are quotes, dashed and without a total. */
+  look?: 'active' | 'pending' | 'muted';
   /** Shown after the item list, e.g. "quoted just now". */
   detail?: string;
-  showTotal?: boolean;
-  /** Button beside the card (Start, Ready…). Kept outside the link so both stay tappable. */
+  /** Button on the card (Start, Ready…). Sits above the card's link so both stay tappable. */
   action?: ReactNode;
-  /** Extra content under the card, also outside the link. */
-  children?: ReactNode;
 }
 
-/** An order on the board. Tapping it opens the order's detail screen. */
+/** An order on the board. Tapping anywhere but its button opens the order. */
 export function OrderCard({
   order,
   badge,
+  alert,
+  note,
+  priority,
   look = 'active',
   detail,
-  showTotal = true,
   action,
-  children,
 }: OrderCardProps) {
+  const pending = look === 'pending';
+
   return (
-    <li className={`rounded-2xl ${CARD_STYLES[look]}`}>
-      <div className="flex items-start">
-        <Link
-          to={`/orders/${order.id}`}
-          className="min-w-0 flex-1 rounded-2xl p-4 hover:bg-stone-50/60"
+    <li
+      className={`relative p-4 ${
+        pending ? 'border-line-strong rounded-3xl border border-dashed' : CARD
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <span
+          className={`flex size-14 shrink-0 items-center justify-center rounded-2xl text-lg font-extrabold ${
+            look === 'active' ? 'bg-warn-100 text-warn-800' : 'bg-track text-muted'
+          }`}
         >
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className="font-bold">
-              #{order.queueNumber} · {orderDisplayName(order)}
-            </h3>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${BADGE_TONES[badge.tone]}`}
+          #{order.queueNumber}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-lg font-bold">
+            {/* The ::after stretches the link over the whole card. */}
+            <Link
+              to={`/orders/${order.id}`}
+              className="focus-visible:after:outline-brand-600 after:absolute after:inset-0 after:rounded-3xl focus-visible:outline-none focus-visible:after:outline-2"
             >
-              {badge.label}
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-stone-600">
+              {orderDisplayName(order)}
+            </Link>
+          </h3>
+          <p className="text-muted text-sm">
             {describeLines(order.lines)}
             {detail && ` · ${detail}`}
           </p>
-          {showTotal && <p className="mt-2 font-bold">{formatCents(order.totalCents)}</p>}
-        </Link>
-        <div className="shrink-0 py-4 pr-4">
-          {action ?? <ChevronRightIcon className="mt-1 text-stone-400" />}
+          {note && <p className="text-warn-800 text-sm font-semibold">{note}</p>}
+          {alert && (
+            <span
+              className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-sm font-bold ${BADGE_TONES.alert}`}
+            >
+              {alert}
+            </span>
+          )}
         </div>
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${BADGE_TONES[badge.tone]}`}
+        >
+          {badge.label}
+        </span>
       </div>
-      {children && <div className="-mt-2 px-4 pb-4">{children}</div>}
+
+      <div className="mt-3">
+        <OrderTags order={order} priority={priority} />
+      </div>
+
+      {!pending && (
+        <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
+          <p className="text-xl font-extrabold">{formatCents(order.totalCents)}</p>
+          {action && <div className="relative z-1 flex flex-wrap justify-end gap-2">{action}</div>}
+        </div>
+      )}
     </li>
   );
 }
 
 const BUTTON_STYLES = {
-  primary: 'bg-stone-900 text-white hover:bg-stone-800',
-  secondary: 'border border-stone-300 bg-white text-stone-800 hover:bg-stone-50',
-  brand: 'bg-brand-600 text-white hover:bg-brand-700',
+  primary: 'bg-ink text-white hover:bg-ink-soft',
+  secondary: 'border border-line-strong bg-white text-ink hover:bg-canvas',
 };
 
 export function CardButton({
@@ -86,7 +113,7 @@ export function CardButton({
     <button
       type="button"
       onClick={onClick}
-      className={`h-11 rounded-xl px-4 text-sm font-bold ${BUTTON_STYLES[tone]}`}
+      className={`h-12 rounded-2xl px-3 font-bold min-[360px]:px-6 ${BUTTON_STYLES[tone]}`}
     >
       {children}
     </button>

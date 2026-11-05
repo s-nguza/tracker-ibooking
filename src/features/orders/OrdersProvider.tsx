@@ -2,9 +2,12 @@ import { useState, type ReactNode } from 'react';
 import {
   advanceOrder,
   cancelOrder,
-  initialStatus,
+  confirmQuote,
   nextQueueNumber,
+  pauseOrder,
+  readyByTime,
   requoteOrder,
+  resumeOrder,
   type Order,
 } from '../../domain/orders';
 import { OrdersContext, type NewOrder, type OrdersStore } from './ordersContext';
@@ -17,31 +20,44 @@ import { createSampleOrders } from './sampleOrders';
 export function OrdersProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(() => createSampleOrders(Date.now()));
 
-  function update(orderId: string, change: (order: Order, now: number) => Order) {
+  /** `change` also gets today's full list, for anything that depends on the queue. */
+  function update(
+    orderId: string,
+    change: (order: Order, now: number, orders: readonly Order[]) => Order,
+  ) {
     const now = Date.now();
-    setOrders((prev) => prev.map((order) => (order.id === orderId ? change(order, now) : order)));
+    setOrders((prev) =>
+      prev.map((order) => (order.id === orderId ? change(order, now, prev) : order)),
+    );
   }
 
   const store: OrdersStore = {
     orders,
     nextQueueNumber: nextQueueNumber(orders),
-    addOrder(newOrder: NewOrder) {
+    addOrder(newOrder: NewOrder, options) {
       const now = Date.now();
       const order: Order = {
         ...newOrder,
         id: crypto.randomUUID(),
         queueNumber: nextQueueNumber(orders),
-        status: initialStatus(newOrder.channel),
+        status: options?.asQuote ? 'awaiting' : 'confirmed',
+        readyBy: options?.asQuote ? undefined : readyByTime(now, newOrder.readyMinutes),
         createdAt: now,
         statusChangedAt: now,
       };
       setOrders((prev) => [...prev, order]);
       return order;
     },
-    advance: (orderId) => update(orderId, advanceOrder),
+    advance: (orderId) =>
+      update(orderId, (order, now, all) =>
+        order.status === 'awaiting' ? confirmQuote(order, all, now) : advanceOrder(order, now),
+      ),
     cancel: (orderId) => update(orderId, cancelOrder),
+    pause: (orderId, reason) => update(orderId, (order, now) => pauseOrder(order, reason, now)),
+    resume: (orderId) => update(orderId, resumeOrder),
     editItems: (orderId, menu, lines) =>
-      update(orderId, (order, now) => requoteOrder(order, menu, lines, now)),
+      update(orderId, (order, now, all) => requoteOrder(order, menu, lines, all, now)),
+    addPhone: (orderId, phone) => update(orderId, (order) => ({ ...order, phone })),
   };
 
   return <OrdersContext value={store}>{children}</OrdersContext>;

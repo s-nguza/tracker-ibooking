@@ -1,10 +1,19 @@
-import type { OrderChannel, OrderStatus } from '../../domain/orders';
+import {
+  currentPause,
+  type Order,
+  type OrderChannel,
+  type OrderStatus,
+  type ReadyEstimate,
+  type RepeatCustomer,
+} from '../../domain/orders';
 
-export type BadgeTone = 'muted' | 'brand' | 'alert';
+export type BadgeTone = 'muted' | 'warn' | 'info' | 'ok' | 'alert';
 
 export const BADGE_TONES: Record<BadgeTone, string> = {
-  muted: 'bg-stone-100 text-stone-500',
-  brand: 'bg-brand-100 text-brand-700',
+  muted: 'bg-track text-ink-soft',
+  warn: 'bg-warn-100 text-warn-800',
+  info: 'bg-brand-100 text-brand-700',
+  ok: 'bg-ok-100 text-ok-800',
   alert: 'bg-red-100 text-red-700',
 };
 
@@ -34,15 +43,36 @@ export function boardUrlFor(status: OrderStatus): string {
 }
 
 export const STATUS_BADGE: Record<OrderStatus, { label: string; tone: BadgeTone }> = {
-  awaiting: { label: 'Awaiting yes', tone: 'brand' },
-  confirmed: { label: 'Waiting to start', tone: 'brand' },
-  preparing: { label: 'Preparing', tone: 'muted' },
-  ready: { label: 'Ready for pickup', tone: 'brand' },
+  awaiting: { label: 'Awaiting yes', tone: 'muted' },
+  confirmed: { label: 'Confirmed', tone: 'warn' },
+  preparing: { label: 'Preparing', tone: 'info' },
+  ready: { label: 'Ready', tone: 'ok' },
   done: { label: 'Collected', tone: 'muted' },
   cancelled: { label: 'Cancelled', tone: 'alert' },
 };
 
-/** "Waiting 9 min", "Started 4 min ago"… for the detail screen. */
+/** The order's tag: its status, or Paused while it's being held up. */
+export function orderBadge(order: Order): { label: string; tone: BadgeTone } {
+  return currentPause(order) ? { label: 'Paused', tone: 'warn' } : STATUS_BADGE[order.status];
+}
+
+/** Quick picks on the pause sheet; staff can also type their own. */
+export const PAUSE_REASONS = [
+  'Ran out of ingredients',
+  'Waiting for stock',
+  'Power cut',
+  'Customer asked to wait',
+];
+
+/** The steps in the progress bar on the order screen. */
+export const PROGRESS_STEPS: { status: OrderStatus; label: string }[] = [
+  { status: 'confirmed', label: 'Confirmed' },
+  { status: 'preparing', label: 'Preparing' },
+  { status: 'ready', label: 'Ready' },
+  { status: 'done', label: 'Collected' },
+];
+
+/** "Confirmed 9 min ago", "Started 4 min ago"… for the order screen. */
 export function statusTimeLabel(status: OrderStatus, minutes: number): string {
   const ago = minutes === 0 ? 'just now' : `${minutes} min ago`;
   switch (status) {
@@ -53,7 +83,7 @@ export function statusTimeLabel(status: OrderStatus, minutes: number): string {
     case 'preparing':
       return `Started ${ago}`;
     case 'ready':
-      return `Ready since ${ago}`;
+      return `Ready ${ago}`;
     case 'done':
       return `Collected ${ago}`;
     case 'cancelled':
@@ -61,8 +91,58 @@ export function statusTimeLabel(status: OrderStatus, minutes: number): string {
   }
 }
 
-export const CHANNEL_LABEL: Record<OrderChannel, string> = {
-  call: 'Phone order',
-  whatsapp: 'WhatsApp order',
-  'walk-in': 'Walk-in order',
+const NO_NAME_TITLE: Record<OrderChannel, string> = {
+  call: 'Phone customer',
+  whatsapp: 'WhatsApp customer',
+  'walk-in': 'Walk-in customer',
 };
+
+const CHANNEL_PHRASE: Record<OrderChannel, string> = {
+  call: 'called in',
+  whatsapp: 'messaged in',
+  'walk-in': 'walked in',
+};
+
+export function customerTitle(order: Order): string {
+  return order.customerName ?? NO_NAME_TITLE[order.channel];
+}
+
+/** Line under the customer's name: "082 345 6712 · called in". */
+export function customerSubtitle(order: Order, phone: string | undefined): string {
+  if (phone) return `${phone} · ${CHANNEL_PHRASE[order.channel]}`;
+  const stillHere =
+    order.channel === 'walk-in' && order.status !== 'done' && order.status !== 'cancelled';
+  return `${stillHere ? 'Waiting in-store' : capitalize(CHANNEL_PHRASE[order.channel])} · no number`;
+}
+
+/** "TM" for "Thabo M."; empty when there's no name to take initials from. */
+export function customerInitials(name: string | undefined): string {
+  if (!name) return '';
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('');
+}
+
+const PREFERENCE: Record<OrderChannel, string> = {
+  call: 'prefers calling',
+  whatsapp: 'prefers WhatsApp',
+  'walk-in': 'usually walks in',
+};
+
+export function describeRepeatCustomer(customer: RepeatCustomer): string {
+  return `Repeat customer · ${PREFERENCE[customer.preferredChannel]}`;
+}
+
+/** How the ready time was worked out: "10 min to make + 18 min for 3 orders ahead". */
+export function describeEstimate(estimate: ReadyEstimate): string {
+  const make = `${estimate.prepMinutes} min to make`;
+  if (estimate.ordersAhead === 0) return `${make} · kitchen is free`;
+  const orders = estimate.ordersAhead === 1 ? '1 order' : `${estimate.ordersAhead} orders`;
+  return `${make} + ${estimate.queueMinutes} min for ${orders} ahead`;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { OrderChannel } from '../../domain/orders';
+import { CARD, SECTION_LABEL } from '../../components/styles';
+import { CONTACT_RULES, type OrderChannel } from '../../domain/orders';
 import { normalizeZaPhone } from '../../domain/phone';
 import type { CustomerContact } from './customerContact';
 
@@ -11,93 +12,68 @@ interface CustomerCardProps {
 }
 
 export function CustomerCard(props: CustomerCardProps) {
-  switch (props.channel) {
-    case 'call':
-      return <CallCard {...props} />;
-    case 'whatsapp':
-      return <WhatsAppCard {...props} />;
-    case 'walk-in':
-      return <WalkInCard {...props} />;
-  }
-}
-
-function CallCard({ queueNumber, contact, onChange }: CustomerCardProps) {
   return (
-    <section className="rounded-2xl border border-stone-200 bg-white p-4">
-      <CardHeader title="Caller details" badge={`Order #${queueNumber}`} />
-      <p className="mt-1 text-stone-600">
-        Get a name to call out at pickup. Read the order and ready time back before you hang up.
-      </p>
-      <div className="mt-4 space-y-3">
-        <TextField
-          label="Name"
-          value={contact.name}
-          onChange={(name) => onChange({ ...contact, name })}
-          placeholder="e.g. Thabo"
-          autoComplete="name"
-        />
-        <PhoneField
-          label="Number (optional, for call-backs)"
-          value={contact.phone}
-          onChange={(phone) => onChange({ ...contact, phone })}
-        />
+    <section>
+      <h2 className={SECTION_LABEL}>Customer</h2>
+      <div className="mt-2">
+        {props.channel === 'walk-in' ? <WalkInCard {...props} /> : <ContactCard {...props} />}
       </div>
     </section>
   );
 }
 
-function WhatsAppCard({ queueNumber, contact, onChange }: CustomerCardProps) {
+/** Calls and WhatsApp: who's on the other end. What's required depends on the channel. */
+function ContactCard({ channel, contact, onChange }: CustomerCardProps) {
+  const rules = CONTACT_RULES[channel];
+  const phoneLabel = channel === 'whatsapp' ? 'WhatsApp number' : 'Phone number';
+
   return (
-    <section className="rounded-2xl border border-stone-200 bg-white p-4">
-      <CardHeader title="WhatsApp customer" badge={`Order #${queueNumber}`} />
-      <p className="mt-1 text-stone-600">
-        After confirming you can send them the order, total and ready time on WhatsApp.
-      </p>
-      <div className="mt-4 space-y-3">
-        <PhoneField
-          label="WhatsApp number"
-          value={contact.phone}
-          onChange={(phone) => onChange({ ...contact, phone })}
-        />
-        <TextField
-          label="Name (optional)"
-          value={contact.name}
-          onChange={(name) => onChange({ ...contact, name })}
-          placeholder="e.g. Lerato"
-          autoComplete="name"
-        />
-      </div>
-    </section>
+    <div className={`${CARD} divide-line divide-y px-5`}>
+      <PhoneField
+        label={rules.phone === 'optional' ? `${phoneLabel} (optional)` : phoneLabel}
+        value={contact.phone}
+        onChange={(phone) => onChange({ ...contact, phone })}
+      />
+      <TextField
+        label={rules.name === 'optional' ? 'Name (optional)' : 'Name'}
+        value={contact.name}
+        onChange={(name) => onChange({ ...contact, name })}
+        placeholder="Thabo M."
+        autoComplete="name"
+      />
+    </div>
   );
 }
 
+/** Walk-ins are standing right there, so the queue number is enough. */
 function WalkInCard({ queueNumber, contact, onChange }: CustomerCardProps) {
   const hasContact = Boolean(contact.name.trim() || contact.phone.trim());
   const [expanded, setExpanded] = useState(hasContact);
 
   return (
-    <section className="border-brand-300 rounded-2xl border border-dashed bg-white p-4">
-      <CardHeader
-        title={`Serving as queue #${queueNumber}`}
-        badge={hasContact ? 'Contact added' : 'No contact yet'}
-        badgeTone={hasContact ? 'brand' : 'muted'}
-      />
-      <p className="mt-1 text-stone-600">
-        Call out the number when it's ready. Add a name or number if you'd like to text them
+    <div className={`${CARD} p-5`}>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-lg font-bold">Serving as queue #{queueNumber}</h3>
+        <span className="bg-track text-ink-soft shrink-0 rounded-full px-3 py-1 text-sm font-semibold">
+          {hasContact ? 'Contact added' : 'No contact yet'}
+        </span>
+      </div>
+      <p className="text-muted mt-1">
+        Call out the number when it’s ready. Add a name or number if you’d like to text them
         instead.
       </p>
       {expanded ? (
-        <div className="mt-4 space-y-3">
+        <div className="divide-line mt-2 divide-y">
           <TextField
             label="Name (optional)"
             value={contact.name}
             onChange={(name) => onChange({ ...contact, name })}
-            placeholder="e.g. Sipho"
+            placeholder="Thabo M."
             autoComplete="name"
             autoFocus
           />
           <PhoneField
-            label="Number (optional)"
+            label="Phone number (optional)"
             value={contact.phone}
             onChange={(phone) => onChange({ ...contact, phone })}
           />
@@ -106,34 +82,11 @@ function WalkInCard({ queueNumber, contact, onChange }: CustomerCardProps) {
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="border-brand-600 text-brand-700 hover:bg-brand-50 mt-4 h-12 w-full rounded-xl border border-dashed font-semibold"
+          className="border-line-strong hover:bg-canvas mt-4 h-12 w-full rounded-2xl border border-dashed font-bold"
         >
           + Add name or number (optional)
         </button>
       )}
-    </section>
-  );
-}
-
-function CardHeader({
-  title,
-  badge,
-  badgeTone = 'muted',
-}: {
-  title: string;
-  badge: string;
-  badgeTone?: 'muted' | 'brand';
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <h2 className="text-lg font-bold">{title}</h2>
-      <span
-        className={`shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${
-          badgeTone === 'brand' ? 'bg-brand-100 text-brand-700' : 'bg-stone-100 text-stone-400'
-        }`}
-      >
-        {badge}
-      </span>
     </div>
   );
 }
@@ -151,21 +104,19 @@ interface TextFieldProps {
 
 function TextField({ label, onChange, error, type = 'text', ...inputProps }: TextFieldProps) {
   return (
-    <label className="block">
-      <span className="text-sm font-medium text-stone-600">{label}</span>
+    <label className="group block py-3">
+      <span className="text-muted group-focus-within:text-brand-700 text-sm font-medium">
+        {label}
+      </span>
       <input
         type={type}
         inputMode={type === 'tel' ? 'tel' : undefined}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={Boolean(error)}
-        className={`mt-1 h-12 w-full rounded-xl border bg-white px-3 text-base outline-none focus:ring-2 ${
-          error
-            ? 'border-red-400 focus:ring-red-200'
-            : 'focus:border-brand-600 focus:ring-brand-100 border-stone-200'
-        }`}
+        className="placeholder:text-muted/50 w-full bg-transparent text-lg font-bold outline-none placeholder:font-medium"
         {...inputProps}
       />
-      {error && <span className="mt-1 block text-sm text-red-600">{error}</span>}
+      {error && <span className="block text-sm font-medium text-red-700">{error}</span>}
     </label>
   );
 }
@@ -189,7 +140,7 @@ function PhoneField({
       type="tel"
       value={value}
       onChange={onChange}
-      placeholder="e.g. 082 123 4567"
+      placeholder="082 345 6712"
       autoComplete="tel"
       error={error}
     />

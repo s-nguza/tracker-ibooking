@@ -1,5 +1,6 @@
 import type { ComponentType, SVGProps } from 'react';
 import { ChatIcon, PeopleIcon, PhoneIcon } from '../../components/icons';
+import { SEGMENT_TRACK, segmentClass } from '../../components/styles';
 import type { OrderChannel } from '../../domain/orders';
 
 const CHANNELS: {
@@ -19,11 +20,7 @@ interface ChannelPickerProps {
 
 export function ChannelPicker({ value, onChange }: ChannelPickerProps) {
   return (
-    <div
-      role="radiogroup"
-      aria-label="How did the order come in?"
-      className="grid grid-cols-3 gap-2"
-    >
+    <div role="radiogroup" aria-label="How did the order come in?" className={SEGMENT_TRACK}>
       {CHANNELS.map(({ value: channel, label, Icon }) => {
         const selected = channel === value;
         return (
@@ -33,13 +30,9 @@ export function ChannelPicker({ value, onChange }: ChannelPickerProps) {
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(channel)}
-            className={`flex h-12 items-center justify-center gap-2 rounded-xl border text-base transition-colors ${
-              selected
-                ? 'border-brand-600 bg-brand-600 font-semibold text-white'
-                : 'hover:border-brand-300 border-stone-200 bg-white text-stone-700'
-            }`}
+            className={`flex h-11 flex-auto items-center justify-center gap-1.5 rounded-xl px-1 text-[15px] ${segmentClass(selected)}`}
           >
-            <Icon />
+            <Icon width={18} height={18} />
             {label}
           </button>
         );

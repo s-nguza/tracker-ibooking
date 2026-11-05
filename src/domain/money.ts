@@ -4,6 +4,12 @@
 /** All money is stored as integer cents. */
 export type Cents = number;
 
-export function formatCents(cents: Cents, currency = 'ZAR', locale = 'en-ZA'): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(cents / 100);
+const AMOUNT = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Formats as "R35.00". Built by hand because Intl's currency styles add a space after the R. */
+export function formatCents(cents: Cents): string {
+  return `R${AMOUNT.format(cents / 100)}`;
 }

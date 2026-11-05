@@ -3,12 +3,10 @@ import type { Cents } from './money';
 /** How the order reached the business. */
 export type OrderChannel = 'call' | 'whatsapp' | 'walk-in';
 
-export type MenuCategory = 'meals' | 'drinks' | 'extras';
-
 export interface MenuItem {
   id: string;
   name: string;
-  category: MenuCategory;
+  category: string;
   priceCents: Cents;
   prepMinutes: number;
   soldOut?: boolean;
@@ -36,9 +34,6 @@ export const CONTACT_RULES: Record<OrderChannel, ContactRules> = {
   'walk-in': { name: 'optional', phone: 'optional' },
 };
 
-/** Extra minutes added on top of the slowest item for packing and handover. */
-const HANDOVER_BUFFER_MINUTES = 5;
-
 export function setLineQuantity(lines: OrderLines, itemId: string, quantity: number): OrderLines {
   const next = { ...lines };
   if (quantity > 0) next[itemId] = quantity;
@@ -64,16 +59,63 @@ export function orderTotalCents(menu: readonly MenuItem[], lines: OrderLines): C
 }
 
 /**
- * Rough ready time to tell the customer: items are cooked in parallel, so it is
- * the slowest item plus a handover buffer, rounded up to the next 5 minutes.
- * Returns 0 for an empty order.
+ * How long one order takes to make on its own. Items in an order are cooked
+ * side by side, so it's the slowest item's average prep time. 0 means nothing
+ * needs cooking (e.g. only drinks).
  */
-export function estimateReadyMinutes(menu: readonly MenuItem[], lines: OrderLines): number {
+export function orderPrepMinutes(menu: readonly MenuItem[], lines: OrderLines): number {
   const selected = selectedItems(menu, lines);
-  if (selected.length === 0) return 0;
+  return selected.length === 0 ? 0 : Math.max(...selected.map(({ item }) => item.prepMinutes));
+}
 
-  const slowest = Math.max(...selected.map(({ item }) => item.prepMinutes));
-  return Math.ceil((slowest + HANDOVER_BUFFER_MINUTES) / 5) * 5;
+/**
+ * Minutes knocked off each order already in the queue. The kitchen overlaps
+ * work (the next kota goes on while the last one is wrapped), so the queue
+ * moves a bit faster than the orders' prep times added up.
+ */
+export const QUEUE_OVERLAP_MINUTES = 2;
+
+export interface ReadyEstimate {
+  /** This order's own prep time. */
+  prepMinutes: number;
+  /** Orders the kitchen has to get through first. */
+  ordersAhead: number;
+  /** Time to clear those orders, after the overlap discount. */
+  queueMinutes: number;
+  /** What to tell the customer: prep + queue. */
+  totalMinutes: number;
+}
+
+/**
+ * Ready time to tell the customer:
+ *   this order's prep time
+ *   + for each confirmed or preparing order ahead of it: its prep time
+ *     (what's left of it, if already started) minus QUEUE_OVERLAP_MINUTES.
+ * Quotes still awaiting a yes aren't in the queue. Orders with nothing to
+ * cook are handed over straight away, so they don't wait for the queue.
+ */
+export function estimateReadyTime(
+  prepMinutes: number,
+  orders: readonly Order[],
+  now: number,
+): ReadyEstimate {
+  if (prepMinutes === 0) return { prepMinutes, ordersAhead: 0, queueMinutes: 0, totalMinutes: 0 };
+
+  const ahead = orders.filter((o) => o.status === 'confirmed' || o.status === 'preparing');
+  const queueMinutes = ahead.reduce((sum, order) => {
+    const left =
+      order.status === 'preparing'
+        ? order.prepMinutes - Math.floor(cookingMs(order, now) / 60_000)
+        : order.prepMinutes;
+    return sum + Math.max(0, left - QUEUE_OVERLAP_MINUTES);
+  }, 0);
+
+  return {
+    prepMinutes,
+    ordersAhead: ahead.length,
+    queueMinutes,
+    totalMinutes: prepMinutes + queueMinutes,
+  };
 }
 
 /**
@@ -90,6 +132,7 @@ export type OrderStatus = 'awaiting' | 'confirmed' | 'preparing' | 'ready' | 'do
 export interface OrderLine {
   itemId: string;
   name: string;
+  category: string;
   quantity: number;
   priceCents: Cents;
 }
@@ -104,11 +147,29 @@ export interface Order {
   /** Name and price are copied at order time so later menu changes don't rewrite history. */
   lines: OrderLine[];
   totalCents: Cents;
+  /** How long this order takes to make on its own (see orderPrepMinutes). */
+  prepMinutes: number;
+  /** Ready time the customer was given, including the queue ahead of them. */
   readyMinutes: number;
+  /** The moment that ready time runs out. Set when the order is confirmed; quotes don't have one. */
+  readyBy?: number;
   status: OrderStatus;
   createdAt: number;
   /** When the order entered its current status; drives "Waiting 9 min". */
   statusChangedAt: number;
+  /** When the kitchen pressed Start; the timer on the order counts from here. */
+  startedAt?: number;
+  /** When it was marked ready. With startedAt, this is how long it really took to make. */
+  readyAt?: number;
+  /** Every time cooking was paused, oldest first. The last one is open while it's paused. */
+  pauses?: OrderPause[];
+}
+
+export interface OrderPause {
+  reason: string;
+  pausedAt: number;
+  /** Missing while the order is still paused. */
+  resumedAt?: number;
 }
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
@@ -118,10 +179,113 @@ const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   ready: 'done',
 };
 
-/** Moves the order one step along its lifecycle. Done and cancelled orders are unchanged. */
+/**
+ * Moves the order one step along its lifecycle. Done and cancelled orders are
+ * unchanged, and so are paused ones: they have to be resumed first.
+ */
 export function advanceOrder(order: Order, now: number): Order {
   const next = NEXT_STATUS[order.status];
-  return next ? { ...order, status: next, statusChangedAt: now } : order;
+  if (!next || currentPause(order)) return order;
+  return {
+    ...order,
+    status: next,
+    statusChangedAt: now,
+    ...(next === 'preparing' && { startedAt: now }),
+    ...(next === 'ready' && { readyAt: now }),
+  };
+}
+
+/** The pause the order is in right now, if any. */
+export function currentPause(order: Order): OrderPause | null {
+  const last = order.pauses?.at(-1);
+  return last && last.resumedAt === undefined ? last : null;
+}
+
+/** Stops the timer on an order being made. A reason is required. */
+export function pauseOrder(order: Order, reason: string, now: number): Order {
+  const trimmed = reason.trim();
+  if (order.status !== 'preparing' || currentPause(order) || !trimmed) return order;
+  return { ...order, pauses: [...(order.pauses ?? []), { reason: trimmed, pausedAt: now }] };
+}
+
+export function resumeOrder(order: Order, now: number): Order {
+  if (!currentPause(order)) return order;
+  const pauses = order.pauses!.map((p) =>
+    p.resumedAt === undefined ? { ...p, resumedAt: now } : p,
+  );
+  return { ...order, pauses };
+}
+
+function pausedMs(order: Order, until: number): number {
+  return (order.pauses ?? []).reduce(
+    (sum, pause) => sum + (pause.resumedAt ?? until) - pause.pausedAt,
+    0,
+  );
+}
+
+/** Time spent actually cooking so far: since Start, leaving out any pauses. */
+export function cookingMs(order: Order, now: number): number {
+  const start = order.startedAt ?? order.statusChangedAt;
+  return now - start - pausedMs(order, now);
+}
+
+/**
+ * How long the order really took to make, or null if it wasn't timed from Start
+ * to Ready. Pauses are left out so a power cut doesn't skew the learned times.
+ */
+export function actualPrepMs(order: Order): number | null {
+  if (order.startedAt === undefined || order.readyAt === undefined) return null;
+  return cookingMs(order, order.readyAt);
+}
+
+/** Timer text: "04:12", or "1:04:12" past an hour. */
+export function formatElapsed(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
+}
+
+/** Real timings needed before an item's prep time stops being the menu's guess. */
+const TIMINGS_BEFORE_LEARNING = 3;
+
+/**
+ * The menu with prep times replaced by what the kitchen really takes, once an
+ * item has enough timed orders. Each timing counts towards the order's slowest
+ * item, since that's the one that decides how long the order takes. Uses the
+ * median so one forgotten Ready button or mis-tap doesn't skew the time.
+ */
+export function withLearnedPrepTimes(
+  menu: readonly MenuItem[],
+  orders: readonly Order[],
+): MenuItem[] {
+  const prepOf = (itemId: string) => menu.find((i) => i.id === itemId)?.prepMinutes ?? 0;
+  const timings = new Map<string, number[]>();
+
+  for (const order of orders) {
+    const actual = actualPrepMs(order);
+    if (actual === null) continue;
+    const slowest = order.lines.reduce<OrderLine | null>(
+      (best, line) => (!best || prepOf(line.itemId) > prepOf(best.itemId) ? line : best),
+      null,
+    );
+    if (!slowest || prepOf(slowest.itemId) === 0) continue;
+    timings.set(slowest.itemId, [...(timings.get(slowest.itemId) ?? []), actual]);
+  }
+
+  return menu.map((item) => {
+    const times = timings.get(item.id);
+    if (!times || times.length < TIMINGS_BEFORE_LEARNING) return item;
+    return { ...item, prepMinutes: Math.max(1, Math.ceil(median(times) / 60_000)) };
+  });
+}
+
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
 }
 
 export function cancelOrder(order: Order, now: number): Order {
@@ -133,6 +297,7 @@ export function buildOrderLines(menu: readonly MenuItem[], lines: OrderLines): O
   return selectedItems(menu, lines).map(({ item, quantity }) => ({
     itemId: item.id,
     name: item.name,
+    category: item.category,
     quantity,
     priceCents: item.priceCents,
   }));
@@ -147,23 +312,72 @@ export function nextQueueNumber(orders: readonly Order[], firstNumber = 1): numb
   return orders.reduce((max, order) => Math.max(max, order.queueNumber + 1), firstNumber);
 }
 
+/** Every menu category in the order, e.g. ["Kotas", "Drinks"]. */
+export function orderCategories(order: Order): string[] {
+  return [...new Set(order.lines.map((line) => line.category))];
+}
+
+/** Orders taking at least this long to make count as long ones. */
+export const LONG_PREP_MINUTES = 15;
+
+export function isLongOrder(order: Order): boolean {
+  return order.prepMinutes >= LONG_PREP_MINUTES;
+}
+
+/** The latest the kitchen can start and still make the ready time the customer was told. */
+export function mustStartBy(order: Order): number {
+  const readyBy = order.readyBy ?? readyByTime(order.statusChangedAt, order.readyMinutes);
+  return readyBy - order.prepMinutes * 60_000;
+}
+
+/**
+ * Minutes left to start the order on time, or 0 when it has to start now.
+ */
+export function minutesToStart(order: Order, now: number): number {
+  return Math.max(0, Math.ceil((mustStartBy(order) - now) / 60_000));
+}
+
+/**
+ * The order to work through. Anything that has to start now comes first, most
+ * overdue on top, so nobody gets skipped. After that the longest cook goes
+ * first: it needs the head start, and quick orders can be fitted in around it.
+ */
+export function byPriority(orders: readonly Order[], now: number): Order[] {
+  return [...orders].sort((a, b) => {
+    const aStartsIn = mustStartBy(a) - now;
+    const bStartsIn = mustStartBy(b) - now;
+    const aUrgent = aStartsIn <= 0;
+    const bUrgent = bStartsIn <= 0;
+    if (aUrgent !== bUrgent) return aUrgent ? -1 : 1;
+    if (aUrgent) return aStartsIn - bStartsIn;
+    return b.prepMinutes - a.prepMinutes || byQueueNumber(a, b);
+  });
+}
+
 /** Whole minutes between two timestamps, never negative. */
 export function minutesBetween(from: number, to: number): number {
   return Math.max(0, Math.floor((to - from) / 60_000));
+}
+
+export function readyByTime(confirmedAt: number, readyMinutes: number): number {
+  return confirmedAt + readyMinutes * 60_000;
+}
+
+/**
+ * Minutes past the ready time the customer was told (at least 1), or null if
+ * the order isn't late. Only orders still to be finished can be late: once it's
+ * ready the wait is over, and orders with nothing to cook have no ready time.
+ */
+export function minutesLate(order: Order, now: number): number | null {
+  if (order.status !== 'confirmed' && order.status !== 'preparing') return null;
+  if (order.readyBy === undefined || order.readyMinutes === 0 || now <= order.readyBy) return null;
+  return Math.max(1, minutesBetween(order.readyBy, now));
 }
 
 /** Who to call out: their name, or the channel when we don't have one. */
 export function orderDisplayName(order: Pick<Order, 'customerName' | 'channel'>): string {
   if (order.customerName) return order.customerName;
   return { call: 'Caller', whatsapp: 'WhatsApp', 'walk-in': 'Walk-in' }[order.channel];
-}
-
-/**
- * WhatsApp orders start as a quote: the customer still has to reply "yes".
- * Calls and walk-ins have already committed by the time we enter them.
- */
-export function initialStatus(channel: OrderChannel): OrderStatus {
-  return channel === 'whatsapp' ? 'awaiting' : 'confirmed';
 }
 
 /** Turns saved order lines back into quantities, e.g. to edit them in the menu picker. */
@@ -175,19 +389,67 @@ export function toOrderLines(lines: readonly OrderLine[]): OrderLines {
  * Replaces the items on a quote that the customer hasn't accepted yet. The
  * quote clock restarts, because they need the new quote before saying yes.
  * Orders past the quote stage, or edits that leave no items, are unchanged.
+ * `orders` is today's list, used to re-estimate the ready time against the queue.
  */
 export function requoteOrder(
   order: Order,
   menu: readonly MenuItem[],
   lines: OrderLines,
+  orders: readonly Order[],
   now: number,
 ): Order {
   if (order.status !== 'awaiting' || orderItemCount(lines) === 0) return order;
+  const prepMinutes = orderPrepMinutes(menu, lines);
   return {
     ...order,
     lines: buildOrderLines(menu, lines),
     totalCents: orderTotalCents(menu, lines),
-    readyMinutes: estimateReadyMinutes(menu, lines),
+    prepMinutes,
+    readyMinutes: estimateReadyTime(prepMinutes, orders, now).totalMinutes,
     statusChangedAt: now,
   };
+}
+
+/**
+ * The customer said yes to a quote. The queue may have grown since we quoted,
+ * so the ready time is re-estimated against the queue as it is now.
+ */
+export function confirmQuote(order: Order, orders: readonly Order[], now: number): Order {
+  if (order.status !== 'awaiting') return order;
+  const readyMinutes = estimateReadyTime(order.prepMinutes, orders, now).totalMinutes;
+  return {
+    ...order,
+    status: 'confirmed',
+    statusChangedAt: now,
+    readyMinutes,
+    readyBy: readyByTime(now, readyMinutes),
+  };
+}
+
+export interface RepeatCustomer {
+  /** The name from their most recent order that had one. */
+  name?: string;
+  /** How they most often order; ties go to the most recent. */
+  preferredChannel: OrderChannel;
+}
+
+/** Looks up someone who has ordered before by their E.164 number. Null if they're new. */
+export function findRepeatCustomer(orders: readonly Order[], phone: string): RepeatCustomer | null {
+  const past = orders
+    .filter((o) => o.phone === phone && o.status !== 'cancelled')
+    .sort(byQueueNumber);
+  if (past.length === 0) return null;
+
+  const counts = new Map<OrderChannel, number>();
+  let preferredChannel = past[0]!.channel;
+  let best = 0;
+  for (const { channel } of past) {
+    const count = (counts.get(channel) ?? 0) + 1;
+    counts.set(channel, count);
+    if (count >= best) {
+      best = count;
+      preferredChannel = channel;
+    }
+  }
+  return { name: past.findLast((o) => o.customerName)?.customerName, preferredChannel };
 }

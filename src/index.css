@@ -1,13 +1,33 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-brand-50: #fbf3ec;
-  --color-brand-100: #f1e6dc;
-  --color-brand-300: #dfb08f;
-  --color-brand-500: #d0743f;
-  --color-brand-600: #c4622f;
-  --color-brand-700: #a64f22;
-  --color-canvas: #f8f5f0;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #f3f4f7;
+  --color-track: #e7e9ee;
+  --color-line: #e6e8ec;
+  --color-line-strong: #cfd3da;
+  --color-ink: #0b0f19;
+  --color-ink-soft: #252a36;
+  --color-muted: #5f6878;
+
+  --color-brand-50: #eceffe;
+  --color-brand-100: #e4e8fe;
+  --color-brand-600: #3d5afe;
+  --color-brand-700: #2a3fc7;
+
+  --color-warn-100: #fdf0c8;
+  --color-warn-800: #8a3f0c;
+
+  --color-ok-50: #e3f5ea;
+  --color-ok-100: #d3f5df;
+  --color-ok-600: #16a34a;
+  --color-ok-700: #0a7a3f;
+  --color-ok-800: #0a5c30;
+
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 8px 24px rgb(16 24 40 / 0.06);
+  --shadow-bar: 0 -8px 24px rgb(16 24 40 / 0.08);
+  --shadow-fab: 0 10px 28px rgb(61 90 254 / 0.4);
 }
 
 html,
@@ -17,5 +37,13 @@ body,
 }
 
 body {
-  @apply bg-stone-50 text-stone-900 antialiased;
+  @apply bg-canvas text-ink antialiased;
+}
+
+/* In the base layer so utilities like outline-none on text fields can override it. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
 }

@@ -1,12 +1,8 @@
 import { useState } from 'react';
+import { MinusIcon, PlusIcon } from '../../components/icons';
+import { CARD, SECTION_LABEL } from '../../components/styles';
 import { formatCents } from '../../domain/money';
-import type { MenuCategory, MenuItem, OrderLines } from '../../domain/orders';
-
-const CATEGORIES: { value: MenuCategory; label: string }[] = [
-  { value: 'meals', label: 'Meals' },
-  { value: 'drinks', label: 'Drinks' },
-  { value: 'extras', label: 'Extras' },
-];
+import type { MenuItem, OrderLines } from '../../domain/orders';
 
 interface MenuPickerProps {
   menu: readonly MenuItem[];
@@ -15,14 +11,16 @@ interface MenuPickerProps {
 }
 
 export function MenuPicker({ menu, lines, onQuantityChange }: MenuPickerProps) {
-  const [category, setCategory] = useState<MenuCategory>('meals');
+  // Categories come from the menu, in the order they first appear.
+  const categories = [...new Set(menu.map((item) => item.category))];
+  const [category, setCategory] = useState(categories[0]);
   const items = menu.filter((item) => item.category === category);
 
   return (
     <section>
-      <h2 className="text-sm font-bold tracking-widest text-stone-500 uppercase">Add items</h2>
-      <div role="tablist" className="mt-2 flex gap-6 border-b border-stone-200">
-        {CATEGORIES.map(({ value, label }) => {
+      <h2 className={SECTION_LABEL}>Add items</h2>
+      <div role="tablist" className="mt-2 flex flex-wrap gap-2">
+        {categories.map((value) => {
           const selected = value === category;
           return (
             <button
@@ -31,19 +29,19 @@ export function MenuPicker({ menu, lines, onQuantityChange }: MenuPickerProps) {
               role="tab"
               aria-selected={selected}
               onClick={() => setCategory(value)}
-              className={`-mb-px border-b-2 py-2 text-lg ${
+              className={`h-11 rounded-full px-4 text-[15px] font-bold whitespace-nowrap ${
                 selected
-                  ? 'border-brand-600 text-brand-600 font-semibold'
-                  : 'border-transparent text-stone-600 hover:text-stone-900'
+                  ? 'bg-ink text-white'
+                  : 'border-line text-muted hover:text-ink border bg-white'
               }`}
             >
-              {label}
+              {value}
             </button>
           );
         })}
       </div>
 
-      <ul role="tabpanel" className="divide-y divide-stone-200">
+      <ul role="tabpanel" className={`${CARD} divide-line mt-3 divide-y px-5`}>
         {items.map((item) => (
           <MenuRow
             key={item.id}
@@ -52,7 +50,6 @@ export function MenuPicker({ menu, lines, onQuantityChange }: MenuPickerProps) {
             onQuantityChange={(qty) => onQuantityChange(item.id, qty)}
           />
         ))}
-        {items.length === 0 && <li className="py-6 text-stone-500">Nothing here yet.</li>}
       </ul>
     </section>
   );
@@ -69,51 +66,51 @@ function MenuRow({
 }) {
   if (item.soldOut) {
     return (
-      <li className="py-4">
-        <p className="text-lg text-stone-400">{item.name}</p>
-        <p className="text-brand-600">Sold out today</p>
+      <li className="flex items-center justify-between gap-4 py-4">
+        <p className="text-muted/70 text-lg font-bold">{item.name}</p>
+        <p className="shrink-0 text-sm font-semibold text-red-700">Sold out today</p>
       </li>
     );
   }
 
   const details = [formatCents(item.priceCents)];
-  if (item.prepMinutes > 0) details.push(`~${item.prepMinutes} min`);
+  if (item.prepMinutes > 0) details.push(`${item.prepMinutes} min`);
 
   return (
-    <li className="flex items-center justify-between gap-4 py-4">
-      <div>
-        <p className="text-lg">{item.name}</p>
-        <p className="text-stone-600">{details.join(' · ')}</p>
+    <li className="flex items-center justify-between gap-4 py-3.5">
+      <div className="min-w-0">
+        <p className="text-lg font-bold">{item.name}</p>
+        <p className="text-muted">{details.join(' · ')}</p>
       </div>
       {quantity === 0 ? (
         <button
           type="button"
           aria-label={`Add ${item.name}`}
           onClick={() => onQuantityChange(1)}
-          className="border-brand-600 text-brand-600 hover:bg-brand-50 flex size-11 items-center justify-center rounded-full border text-xl"
+          className="bg-brand-100 text-brand-700 hover:bg-brand-50 flex size-11 shrink-0 items-center justify-center rounded-full"
         >
-          +
+          <PlusIcon strokeWidth={2.5} />
         </button>
       ) : (
-        <div className="bg-brand-100 flex items-center gap-3 rounded-full p-1.5">
+        <div className="bg-brand-50 flex shrink-0 items-center gap-2 rounded-full p-1">
           <button
             type="button"
             aria-label={`Remove one ${item.name}`}
             onClick={() => onQuantityChange(quantity - 1)}
-            className="text-brand-600 flex size-9 items-center justify-center rounded-full bg-white text-xl"
+            className="text-brand-700 flex size-9 items-center justify-center rounded-full bg-white"
           >
-            −
+            <MinusIcon strokeWidth={2.5} />
           </button>
-          <span className="w-5 text-center text-lg font-semibold" aria-live="polite">
+          <span className="text-brand-700 w-5 text-center text-lg font-bold" aria-live="polite">
             {quantity}
           </span>
           <button
             type="button"
             aria-label={`Add one more ${item.name}`}
             onClick={() => onQuantityChange(quantity + 1)}
-            className="bg-brand-600 flex size-9 items-center justify-center rounded-full text-xl text-white"
+            className="bg-brand-600 hover:bg-brand-700 flex size-9 items-center justify-center rounded-full text-white"
           >
-            +
+            <PlusIcon strokeWidth={2.5} />
           </button>
         </div>
       )}

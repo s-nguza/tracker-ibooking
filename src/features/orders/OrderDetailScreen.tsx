@@ -1,6 +1,24 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { BackIcon, ClockIcon } from '../../components/icons';
+import {
+  BackIcon,
+  ChatIcon,
+  CheckIcon,
+  ClockIcon,
+  CopyIcon,
+  PersonIcon,
+  PhoneIcon,
+  SpeakerIcon,
+} from '../../components/icons';
+import {
+  BOTTOM_BAR,
+  BUTTON_OUTLINE,
+  BUTTON_PRIMARY,
+  CARD,
+  ROUND_BUTTON,
+  SCREEN,
+  SECTION_LABEL,
+} from '../../components/styles';
 import {
   orderConfirmationMessage,
   orderQuoteMessage,
@@ -9,10 +27,14 @@ import {
 } from '../../domain/messages';
 import { formatCents } from '../../domain/money';
 import {
-  estimateReadyMinutes,
+  actualPrepMs,
+  currentPause,
+  estimateReadyTime,
+  formatElapsed,
   minutesBetween,
-  orderDisplayName,
+  minutesLate,
   orderItemCount,
+  orderPrepMinutes,
   orderTotalCents,
   setLineQuantity,
   toOrderLines,
@@ -20,59 +42,88 @@ import {
   type OrderLines,
   type OrderStatus,
 } from '../../domain/orders';
-import { formatZaPhone } from '../../domain/phone';
+import { formatZaPhone, normalizeZaPhone } from '../../domain/phone';
+import { copyText } from './copyText';
 import { MenuPicker } from './MenuPicker';
 import { useOrders } from './ordersContext';
 import {
   BADGE_TONES,
   boardUrlFor,
-  CHANNEL_LABEL,
-  STATUS_BADGE,
+  customerInitials,
+  customerSubtitle,
+  customerTitle,
+  describeEstimate,
+  orderBadge,
+  PROGRESS_STEPS,
   statusTimeLabel,
 } from './orderStatusUi';
-import { SAMPLE_MENU } from './sampleMenu';
+import { OrderTags } from './OrderTags';
+import { PauseDialog } from './PauseDialog';
+import { PrepTimer } from './PrepTimer';
+import { BUSINESS_NAME } from './sampleOrders';
+import { useMenu } from './useMenu';
 import { useNow } from './useNow';
 
 /** The main button for each step; done and cancelled orders have none. */
 const NEXT_STEP: Partial<Record<OrderStatus, string>> = {
   awaiting: 'They said yes — confirm',
   confirmed: 'Start preparing',
-  preparing: 'Mark ready',
-  ready: 'Collected',
+  preparing: 'Mark as ready',
+  ready: 'Mark as collected',
 };
+
+/** The message that fits this step, or null once there's nothing left to say. */
+function customerMessage(order: Order): { label: string; text: string } | null {
+  switch (order.status) {
+    case 'awaiting':
+      return { label: 'Quote message', text: orderQuoteMessage(order) };
+    case 'confirmed':
+      return { label: 'Order message', text: orderConfirmationMessage(order) };
+    case 'preparing':
+    case 'ready':
+      return { label: 'Ready message', text: orderReadyMessage(order, BUSINESS_NAME) };
+    default:
+      return null;
+  }
+}
 
 /** Everything about one order, plus whatever can be done with it at its current step. */
 export function OrderDetailScreen() {
   const { orderId } = useParams();
   const { orders } = useOrders();
   const order = orders.find((o) => o.id === orderId);
+  const badge = order && orderBadge(order);
 
   return (
-    <div className="bg-canvas mx-auto flex min-h-full max-w-md flex-col">
-      <header className="sticky top-0 z-10 grid grid-cols-[3rem_1fr_3rem] items-center border-b border-stone-200 bg-white px-3 py-4">
+    <div className={SCREEN}>
+      <header className="bg-canvas sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-3">
         <Link
           to={order ? boardUrlFor(order.status) : '/'}
           aria-label="Back to orders"
-          className="flex size-12 items-center justify-center rounded-full text-stone-700 hover:bg-stone-100"
+          className={ROUND_BUTTON}
         >
-          <BackIcon width={26} height={26} />
+          <BackIcon width={24} height={24} strokeWidth={2.25} />
         </Link>
-        <h1 className="text-center text-xl font-bold">
-          {order ? `${CHANNEL_LABEL[order.channel]} #${order.queueNumber}` : 'Order'}
+        <h1 className="text-xl font-extrabold whitespace-nowrap">
+          {order ? `Order #${order.queueNumber}` : 'Order'}
         </h1>
+        {badge && (
+          <span
+            className={`justify-self-end rounded-full px-3 py-1.5 text-sm font-bold whitespace-nowrap ${BADGE_TONES[badge.tone]}`}
+          >
+            {badge.label}
+          </span>
+        )}
       </header>
 
       {order ? (
         <OrderDetail key={order.id} order={order} />
       ) : (
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-5 text-center">
-          <p className="text-stone-600">
+          <p className="text-muted">
             This order doesn’t exist any more. Orders reset when the page is refreshed.
           </p>
-          <Link
-            to="/"
-            className="flex h-12 items-center rounded-2xl bg-stone-900 px-6 font-bold text-white"
-          >
+          <Link to="/" className={`${BUTTON_PRIMARY} max-w-60`}>
             Back to orders
           </Link>
         </main>
@@ -82,12 +133,14 @@ export function OrderDetailScreen() {
 }
 
 function OrderDetail({ order }: { order: Order }) {
-  const { advance, cancel, editItems } = useOrders();
+  const { advance, cancel, editItems, resume } = useOrders();
   const navigate = useNavigate();
   const now = useNow();
+  const menu = useMenu();
   const [editing, setEditing] = useState(false);
   const [justEdited, setJustEdited] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [pausing, setPausing] = useState(false);
 
   if (editing) {
     return (
@@ -95,7 +148,7 @@ function OrderDetail({ order }: { order: Order }) {
         order={order}
         onCancel={() => setEditing(false)}
         onSave={(lines) => {
-          editItems(order.id, SAMPLE_MENU, lines);
+          editItems(order.id, menu, lines);
           setEditing(false);
           setJustEdited(true);
         }}
@@ -105,14 +158,23 @@ function OrderDetail({ order }: { order: Order }) {
 
   const isQuote = order.status === 'awaiting';
   const canCancel = order.status !== 'done' && order.status !== 'cancelled';
-  const nextStep = NEXT_STEP[order.status];
-  const badge = STATUS_BADGE[order.status];
+  const pause = currentPause(order);
+  const pastPauses = (order.pauses ?? []).filter((p) => p.resumedAt !== undefined);
+  const nextStep = pause ? 'Resume cooking' : NEXT_STEP[order.status];
+  const message = customerMessage(order);
+  const late = minutesLate(order, now);
+  const took = actualPrepMs(order);
   // Back to the tab the order was listed under, so the next one is right there.
   const boardUrl = boardUrlFor(order.status);
 
   function goToNextStep() {
+    if (pause) {
+      resume(order.id);
+      return;
+    }
     advance(order.id);
-    navigate(boardUrl);
+    // After Start, stay here: the timer has just begun running on this screen.
+    if (order.status !== 'confirmed') navigate(boardUrl);
   }
 
   function cancelOrder() {
@@ -121,106 +183,157 @@ function OrderDetail({ order }: { order: Order }) {
   }
 
   return (
-    <main className="flex-1 space-y-4 px-5 py-5">
-      <section
-        className={`rounded-2xl bg-white p-4 ${
-          isQuote ? 'border-brand-300 border border-dashed' : 'border border-stone-200'
-        }`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold">{orderDisplayName(order)}</h2>
-            {order.phone && (
-              <a href={`tel:${order.phone}`} className="text-brand-700 hover:underline">
-                {formatZaPhone(order.phone)}
-              </a>
-            )}
-          </div>
-          <span
-            className={`shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${BADGE_TONES[badge.tone]}`}
-          >
-            {badge.label}
-          </span>
-        </div>
-        <p className="mt-3 flex items-center gap-2 text-sm text-stone-600">
-          <ClockIcon className="shrink-0" width={16} height={16} />
-          {statusTimeLabel(order.status, minutesBetween(order.statusChangedAt, now))}
-        </p>
-      </section>
+    <>
+      <main className="flex-1 space-y-4 px-5 pt-1 pb-6">
+        {order.status !== 'cancelled' && <ProgressSteps status={order.status} />}
 
-      {justEdited && (
-        <p className="bg-brand-100 text-brand-700 rounded-xl px-3 py-2 text-sm">
-          Items updated. Resend the quote so they see the new total before saying yes.
-        </p>
-      )}
-
-      <section className="rounded-2xl border border-stone-200 bg-white p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold tracking-widest text-stone-500 uppercase">Items</h2>
-          {isQuote && (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="text-brand-700 -my-2 h-10 px-2 font-semibold hover:underline"
-            >
-              Edit items
-            </button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-muted flex items-center gap-2 text-sm font-medium">
+            <ClockIcon className="shrink-0" width={16} height={16} />
+            {statusTimeLabel(order.status, minutesBetween(order.statusChangedAt, now))}
+            {order.readyMinutes > 0 &&
+              (order.status === 'confirmed' || order.status === 'preparing') &&
+              ` · told about ${order.readyMinutes} min`}
+          </p>
+          {late !== null && (
+            <span className={`rounded-full px-3 py-1 text-sm font-bold ${BADGE_TONES.alert}`}>
+              Late by {late} min
+            </span>
           )}
         </div>
-        <ul className="mt-2 divide-y divide-stone-100">
-          {order.lines.map((line) => (
-            <li key={line.itemId} className="flex justify-between gap-4 py-2">
-              <span>
-                {line.name} <span className="text-stone-500">×{line.quantity}</span>
-              </span>
-              <span>{formatCents(line.priceCents * line.quantity)}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-2 flex justify-between border-t border-stone-200 pt-3 text-lg font-bold">
-          <span>Total</span>
-          <span>{formatCents(order.totalCents)}</span>
-        </div>
-        {(isQuote || order.status === 'confirmed' || order.status === 'preparing') && (
-          <p className="mt-1 text-sm text-stone-600">
-            {isQuote
-              ? `Ready about ${order.readyMinutes} min after they confirm.`
-              : `Customer was told about ${order.readyMinutes} min.`}
+
+        {order.status === 'preparing' && (
+          <section className={`${CARD} p-5`}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className={SECTION_LABEL}>Cooking time</h2>
+                <p className={`text-4xl font-extrabold ${pause ? 'text-muted' : ''}`}>
+                  <PrepTimer order={order} />
+                </p>
+                {order.prepMinutes > 0 && (
+                  <p className="text-muted text-sm font-medium">
+                    Usually about {order.prepMinutes} min
+                  </p>
+                )}
+              </div>
+              {!pause && (
+                <button
+                  type="button"
+                  onClick={() => setPausing(true)}
+                  className="border-line-strong hover:bg-canvas h-12 shrink-0 rounded-2xl border px-5 font-bold"
+                >
+                  Pause
+                </button>
+              )}
+            </div>
+            {pause && (
+              <p className="bg-warn-100 text-warn-800 mt-3 rounded-2xl px-4 py-3 font-semibold">
+                Paused for {minutesBetween(pause.pausedAt, now)} min: {pause.reason}
+              </p>
+            )}
+          </section>
+        )}
+
+        {pastPauses.length > 0 && (
+          <section className={`${CARD} p-5`}>
+            <h2 className={SECTION_LABEL}>Earlier pauses</h2>
+            <ul className="mt-2 space-y-1 text-sm">
+              {pastPauses.map((p) => (
+                <li key={p.pausedAt}>
+                  <span className="font-bold tabular-nums">
+                    {formatElapsed(p.resumedAt! - p.pausedAt)}
+                  </span>{' '}
+                  · {p.reason}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {took !== null && (
+          <p className="text-muted text-sm font-medium">
+            Took {formatElapsed(took)} to make
+            {order.prepMinutes > 0 && `, expected about ${order.prepMinutes} min`}
           </p>
         )}
-      </section>
 
-      <div className="space-y-3 pt-2">
-        {nextStep && (
-          <button
-            type="button"
-            onClick={goToNextStep}
-            className="bg-brand-600 hover:bg-brand-700 h-14 w-full rounded-2xl text-lg font-bold text-white"
-          >
-            {nextStep}
-          </button>
+        <CustomerSummary order={order} />
+
+        {justEdited && (
+          <p className="bg-warn-100 text-warn-800 rounded-2xl px-4 py-3 font-semibold">
+            Items updated. Resend the quote so they see the new total before saying yes.
+          </p>
         )}
 
-        <MessageButton order={order} highlight={justEdited} />
+        <section className={`${CARD} p-5`}>
+          <div className="flex items-center justify-between">
+            <h2 className={SECTION_LABEL}>Order</h2>
+            {isQuote && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="text-brand-700 -my-2 h-10 px-2 font-bold hover:underline"
+              >
+                Edit items
+              </button>
+            )}
+          </div>
+          <div className="mt-2">
+            <OrderTags order={order} />
+          </div>
+          <ul className="divide-line mt-2 divide-y">
+            {order.lines.map((line) => (
+              <li key={line.itemId} className="flex items-center gap-3 py-2.5">
+                <span className="bg-canvas flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold">
+                  {line.quantity}
+                </span>
+                <span className="min-w-0 flex-1 font-semibold">{line.name}</span>
+                <span className="font-semibold">
+                  {formatCents(line.priceCents * line.quantity)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="border-line-strong mt-1 flex items-center justify-between border-t border-dashed pt-3">
+            <span className="text-muted text-lg font-semibold">Total</span>
+            <span className="text-3xl font-extrabold">{formatCents(order.totalCents)}</span>
+          </div>
+        </section>
+
+        {message &&
+          (order.phone || isQuote ? (
+            <section>
+              <h2 className={SECTION_LABEL}>{message.label}</h2>
+              <p className="bg-ok-50 mt-2 rounded-2xl p-4 whitespace-pre-line">{message.text}</p>
+            </section>
+          ) : (
+            <p className="bg-brand-50 text-brand-700 flex gap-3 rounded-2xl p-4 font-semibold">
+              <SpeakerIcon className="mt-0.5 shrink-0" />
+              <span>
+                No message to send. Call out “order #{order.queueNumber}” or point them to the
+                board.
+              </span>
+            </p>
+          ))}
 
         {canCancel &&
           (confirmingCancel ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-              <p className="font-semibold text-red-800">
+              <p className="font-bold text-red-800">
                 Cancel order #{order.queueNumber}? This can’t be undone.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setConfirmingCancel(false)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white font-bold text-stone-800"
+                  className="border-line-strong h-12 rounded-2xl border bg-white font-bold"
                 >
                   Keep order
                 </button>
                 <button
                   type="button"
                   onClick={cancelOrder}
-                  className="h-11 rounded-xl bg-red-600 font-bold text-white hover:bg-red-700"
+                  className="h-12 rounded-2xl bg-red-600 font-bold text-white hover:bg-red-700"
                 >
                   Yes, cancel
                 </button>
@@ -230,53 +343,189 @@ function OrderDetail({ order }: { order: Order }) {
             <button
               type="button"
               onClick={() => setConfirmingCancel(true)}
-              className="h-12 w-full font-semibold text-red-700 hover:underline"
+              className="h-11 w-full font-bold text-red-700 hover:underline"
             >
               Cancel order
             </button>
           ))}
-      </div>
-    </main>
+      </main>
+
+      {nextStep && (
+        <footer className={`${BOTTOM_BAR} space-y-3`}>
+          {message && (order.phone || isQuote) && (
+            <MessageActions order={order} text={message.text} updatedQuote={justEdited} />
+          )}
+          <button type="button" onClick={goToNextStep} className={BUTTON_PRIMARY}>
+            {nextStep}
+          </button>
+        </footer>
+      )}
+
+      {pausing && (
+        <PauseDialog
+          orderId={order.id}
+          queueNumber={order.queueNumber}
+          onClose={() => setPausing(false)}
+        />
+      )}
+    </>
   );
 }
 
-/** The WhatsApp message that fits this step: the quote, the confirmation, or "it's ready". */
-function MessageButton({ order, highlight }: { order: Order; highlight: boolean }) {
-  if (!order.phone) return null;
-
-  let label: string;
-  let message: string;
-  switch (order.status) {
-    case 'awaiting':
-      label = highlight ? 'Send updated quote' : 'Resend quote on WhatsApp';
-      message = orderQuoteMessage(order);
-      break;
-    case 'confirmed':
-    case 'preparing':
-      label = 'Text them the order';
-      message = orderConfirmationMessage(order);
-      break;
-    case 'ready':
-      label = 'Text them it’s ready';
-      message = orderReadyMessage(order);
-      break;
-    default:
-      return null;
-  }
+function ProgressSteps({ status }: { status: OrderStatus }) {
+  // A quote hasn't reached the first step yet.
+  const current = PROGRESS_STEPS.findIndex((step) => step.status === status);
 
   return (
-    <a
-      href={whatsAppLink(order.phone, message)}
-      target="_blank"
-      rel="noreferrer"
-      className={`flex h-14 w-full items-center justify-center rounded-2xl text-lg font-bold ${
-        highlight
-          ? 'bg-stone-900 text-white hover:bg-stone-800'
-          : 'border border-stone-300 bg-white text-stone-800 hover:bg-stone-50'
-      }`}
-    >
-      {label}
-    </a>
+    <ol className="grid grid-cols-4 gap-1.5">
+      {PROGRESS_STEPS.map((step, index) => {
+        const reached = index <= current;
+        return (
+          <li key={step.status} aria-current={index === current ? 'step' : undefined}>
+            <div className={`h-1.5 rounded-full ${reached ? 'bg-brand-600' : 'bg-line-strong'}`} />
+            <p
+              className={`mt-1.5 text-[13px] ${
+                reached ? 'text-brand-700' : 'text-muted'
+              } ${index === current ? 'font-extrabold' : 'font-semibold'}`}
+            >
+              {step.label}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function CustomerSummary({ order }: { order: Order }) {
+  const { addPhone } = useOrders();
+  const [adding, setAdding] = useState(false);
+  const [number, setNumber] = useState('');
+
+  const initials = customerInitials(order.customerName);
+  const phone = order.phone && formatZaPhone(order.phone);
+  const finished = order.status === 'done' || order.status === 'cancelled';
+  const normalized = normalizeZaPhone(number);
+
+  return (
+    <section className={`${CARD} p-4`}>
+      <div className="flex items-center gap-3">
+        <span
+          className={`flex size-12 shrink-0 items-center justify-center rounded-full font-extrabold ${
+            initials ? 'bg-brand-100 text-brand-700' : 'bg-canvas text-muted'
+          }`}
+        >
+          {initials || <PersonIcon width={26} height={26} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[17px] font-bold">{customerTitle(order)}</h2>
+          <p className="text-muted text-sm">{customerSubtitle(order, phone)}</p>
+        </div>
+        {phone ? (
+          <span className="bg-ok-100 text-ok-800 shrink-0 rounded-full px-2.5 py-1 text-[13px] font-bold">
+            WhatsApp
+          </span>
+        ) : (
+          !finished &&
+          !adding && (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="border-line-strong hover:bg-canvas h-11 shrink-0 rounded-2xl border px-3 text-sm font-bold"
+            >
+              + Number
+            </button>
+          )
+        )}
+      </div>
+
+      {adding && !phone && (
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (normalized) addPhone(order.id, normalized);
+          }}
+        >
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            autoFocus
+            aria-label="Customer phone number"
+            placeholder="082 345 6712"
+            value={number}
+            onChange={(e) => setNumber(e.target.value)}
+            className="border-line-strong focus:border-brand-600 h-12 min-w-0 flex-1 rounded-2xl border px-3 font-semibold outline-none"
+          />
+          <button
+            type="submit"
+            disabled={!normalized}
+            className="bg-ink disabled:bg-track disabled:text-muted h-12 shrink-0 rounded-2xl px-5 font-bold text-white disabled:cursor-not-allowed"
+          >
+            Save
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+/** Send on WhatsApp, copy the text, and call: the row above the main button. */
+function MessageActions({
+  order,
+  text,
+  updatedQuote,
+}: {
+  order: Order;
+  text: string;
+  updatedQuote: boolean;
+}) {
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+  async function copy() {
+    setCopyState((await copyText(text)) ? 'copied' : 'failed');
+    setTimeout(() => setCopyState('idle'), 2000);
+  }
+
+  const iconButton =
+    'border-line-strong hover:bg-canvas flex h-14 shrink-0 items-center justify-center rounded-2xl border px-4';
+
+  return (
+    <div>
+      <div className="flex gap-2">
+        {order.phone && (
+          <a
+            href={whatsAppLink(order.phone, text)}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-ok-700 hover:bg-ok-800 flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white"
+          >
+            <ChatIcon className="shrink-0" />
+            {updatedQuote ? 'Send updated quote' : 'Send on WhatsApp'}
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={copy}
+          aria-label={copyState === 'copied' ? 'Copied' : 'Copy message'}
+          className={`${iconButton} ${order.phone ? '' : 'flex-1 gap-2 font-bold'}`}
+        >
+          {copyState === 'copied' ? <CheckIcon /> : <CopyIcon />}
+          {!order.phone && (copyState === 'copied' ? 'Copied' : 'Copy message')}
+        </button>
+        {order.phone && (
+          <a href={`tel:${order.phone}`} aria-label="Call customer" className={iconButton}>
+            <PhoneIcon />
+          </a>
+        )}
+      </div>
+      {copyState === 'failed' && (
+        <p className="mt-2 text-sm font-semibold text-red-700">
+          Couldn’t copy. Select the message above instead.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -289,41 +538,49 @@ function EditItems({
   onCancel: () => void;
   onSave: (lines: OrderLines) => void;
 }) {
-  const menu = SAMPLE_MENU;
+  const menu = useMenu();
+  const { orders } = useOrders();
+  const now = useNow();
   const [lines, setLines] = useState<OrderLines>(() => toOrderLines(order.lines));
   const empty = orderItemCount(lines) === 0;
+  const estimate = estimateReadyTime(orderPrepMinutes(menu, lines), orders, now);
 
   return (
     <>
-      <main className="flex-1 px-5 py-5">
+      <main className="flex-1 px-5 pt-1 pb-6">
         <MenuPicker
           menu={menu}
           lines={lines}
           onQuantityChange={(id, qty) => setLines((prev) => setLineQuantity(prev, id, qty))}
         />
       </main>
-      <footer className="sticky bottom-0 border-t border-stone-200 bg-white px-5 pt-4 pb-6">
-        <div className="flex items-baseline justify-between">
-          <p className="text-stone-600">
-            {empty
-              ? 'Add at least one item'
-              : `Ready in about ${estimateReadyMinutes(menu, lines)} min`}
+      <footer className={BOTTOM_BAR}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-muted min-w-0">
+            {empty ? (
+              'Add at least one item'
+            ) : estimate.totalMinutes === 0 ? (
+              'Nothing to cook'
+            ) : (
+              <>
+                <p className="text-ink font-semibold">Ready in about {estimate.totalMinutes} min</p>
+                <p className="text-sm">{describeEstimate(estimate)}</p>
+              </>
+            )}
+          </div>
+          <p className="text-3xl font-extrabold whitespace-nowrap">
+            {formatCents(orderTotalCents(menu, lines))}
           </p>
-          <p className="text-2xl font-bold">{formatCents(orderTotalCents(menu, lines))}</p>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="h-14 rounded-2xl border border-stone-300 bg-white text-lg font-bold text-stone-800"
-          >
+          <button type="button" onClick={onCancel} className={BUTTON_OUTLINE}>
             Discard
           </button>
           <button
             type="button"
             disabled={empty}
             onClick={() => onSave(lines)}
-            className="bg-brand-600 hover:bg-brand-700 h-14 rounded-2xl text-lg font-bold text-white disabled:bg-stone-300"
+            className={BUTTON_PRIMARY}
           >
             Save items
           </button>

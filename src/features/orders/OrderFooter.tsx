@@ -1,63 +1,76 @@
 import { ClockIcon } from '../../components/icons';
+import { BOTTOM_BAR, BUTTON_PRIMARY } from '../../components/styles';
 import { describeLines } from '../../domain/messages';
 import { formatCents, type Cents } from '../../domain/money';
-import type { OrderChannel } from '../../domain/orders';
-
-const READY_TIME_PROMPT: Record<OrderChannel, string> = {
-  call: 'Tell the caller',
-  whatsapp: 'Let them know',
-  'walk-in': 'Tell the customer',
-};
+import type { ReadyEstimate } from '../../domain/orders';
+import { describeEstimate } from './orderStatusUi';
 
 interface OrderFooterProps {
-  channel: OrderChannel;
   itemCount: number;
   lines: { name: string; quantity: number }[];
   totalCents: Cents;
-  readyMinutes: number;
+  estimate: ReadyEstimate;
   /** Why the order can't be confirmed yet, or null when it can. */
   blocker: string | null;
   onConfirm: () => void;
+  /** Saves the order as a quote and copies the text. Left out when a quote makes no sense. */
+  onCopyQuote?: () => void;
 }
 
 export function OrderFooter({
-  channel,
   itemCount,
   lines,
   totalCents,
-  readyMinutes,
+  estimate,
   blocker,
   onConfirm,
+  onCopyQuote,
 }: OrderFooterProps) {
   return (
-    <footer className="sticky bottom-0 border-t border-stone-200 bg-white px-5 pt-5 pb-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-1 text-stone-600">
-          <p className="truncate">
-            {itemCount === 0
-              ? 'No items yet'
-              : `${itemCount} ${itemCount === 1 ? 'item' : 'items'} · ${describeLines(lines)}`}
-          </p>
-          {readyMinutes > 0 && (
-            <p className="flex items-center gap-2">
-              <ClockIcon className="shrink-0" />
-              {READY_TIME_PROMPT[channel]}: ready in about {readyMinutes} min
-            </p>
-          )}
-        </div>
-        <p className="text-2xl font-bold whitespace-nowrap">{formatCents(totalCents)}</p>
+    <footer className={BOTTOM_BAR}>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-muted min-w-0 truncate">
+          {itemCount === 0
+            ? 'No items yet'
+            : `${itemCount} ${itemCount === 1 ? 'item' : 'items'} · ${describeLines(lines)}`}
+        </p>
+        <p className="text-3xl font-extrabold whitespace-nowrap">{formatCents(totalCents)}</p>
       </div>
 
-      {blocker && <p className="text-brand-700 mt-3 text-sm font-medium">{blocker}</p>}
+      {itemCount > 0 && (
+        <div className="mt-2">
+          <p className="bg-canvas inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold">
+            <ClockIcon className="shrink-0" width={18} height={18} />
+            {estimate.totalMinutes > 0
+              ? `Ready in about ${estimate.totalMinutes} min`
+              : 'Nothing to cook: hand it over straight away'}
+          </p>
+          {estimate.totalMinutes > 0 && (
+            <p className="text-muted mt-1 text-sm">{describeEstimate(estimate)}</p>
+          )}
+        </div>
+      )}
+
+      {blocker && <p className="text-warn-800 mt-2 text-sm font-semibold">{blocker}</p>}
 
       <button
         type="button"
         onClick={onConfirm}
         disabled={blocker !== null}
-        className="bg-brand-600 hover:bg-brand-700 mt-4 h-14 w-full rounded-2xl text-lg font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-300"
+        className={`${BUTTON_PRIMARY} mt-3`}
       >
         Confirm order
       </button>
+      {onCopyQuote && (
+        <button
+          type="button"
+          onClick={onCopyQuote}
+          disabled={blocker !== null}
+          className="text-muted hover:text-ink mt-1 h-11 w-full font-bold disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Copy quote to send first
+        </button>
+      )}
     </footer>
   );
 }
