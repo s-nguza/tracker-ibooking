@@ -6,20 +6,26 @@ import {
   actualPrepMs,
   byPriority,
   byQueueNumber,
+  cookedCategories,
   currentPause,
   formatElapsed,
+  fullCategories,
+  kitchenStatus,
   minutesBetween,
   minutesLate,
   minutesToStart,
   type Order,
   type OrderStatus,
 } from '../../domain/orders';
+import { CategoryStatusRow } from './CategoryStatusRow';
+import { KITCHEN_CAPACITY } from './kitchenCapacity';
 import { CardButton, OrderCard } from './OrderCard';
 import { PauseDialog } from './PauseDialog';
 import { useOrders } from './ordersContext';
 import { BOARD_TABS, isBoardTab, type BadgeTone, type BoardTab } from './orderStatusUi';
 import { PrepTimer } from './PrepTimer';
 import { BUSINESS_NAME } from './sampleOrders';
+import { useMenu } from './useMenu';
 import { useNow } from './useNow';
 
 /** After this long in the queue, the time pill turns amber to draw attention. */
@@ -128,6 +134,10 @@ function ConfirmedTab({
   const { advance } = useOrders();
   const cooking = preparing.filter((o) => !currentPause(o));
   const paused = preparing.filter((o) => currentPause(o));
+  const menu = useMenu();
+  const stations = kitchenStatus(cookedCategories(menu), preparing, KITCHEN_CAPACITY);
+  const full = stations.filter((station) => station.full);
+  const waitingFor = (order: Order) => fullCategories(order, stations);
 
   return (
     <>
@@ -135,18 +145,20 @@ function ConfirmedTab({
         <p className="bg-warn-100 text-warn-800 mb-3 flex gap-3 rounded-2xl px-4 py-3 font-semibold">
           <AlertIcon className="mt-0.5 shrink-0" width={22} height={22} strokeWidth={2} />
           <span>
-            {cooking.length > 0
-              ? `Kitchen is busy with ${queueList(cooking)}.`
-              : 'Kitchen is free.'}{' '}
+            {full.length > 0
+              ? `${full.map((s) => `${s.category} busy with ${queueList(s.cooking)}`).join(', ')}. Other categories have room.`
+              : 'Every category has room.'}{' '}
             Tap Start when you’re ready for the next one.
           </span>
         </p>
       )}
+      <CategoryStatusRow stations={stations} />
 
       <ul className="space-y-3">
-        {byPriority(confirmed, now).map((order, index) => {
+        {byPriority(confirmed, now, (o) => waitingFor(o).length > 0).map((order, index) => {
           const waited = minutesBetween(order.statusChangedAt, now);
           const startIn = minutesToStart(order, now);
+          const blockedBy = waitingFor(order);
           return (
             <OrderCard
               key={order.id}
@@ -157,9 +169,13 @@ function ConfirmedTab({
               })}
               priority={{
                 label: `Priority ${index + 1} · ${
-                  startIn === 0 ? 'start now' : `start within ${startIn} min`
+                  blockedBy.length > 0
+                    ? `waiting for ${blockedBy.join(', ')}`
+                    : startIn === 0
+                      ? 'start now'
+                      : `start within ${startIn} min`
                 }`,
-                urgent: startIn === 0,
+                urgent: blockedBy.length === 0 && startIn === 0,
               }}
               action={
                 // The top priority is the one to start next.

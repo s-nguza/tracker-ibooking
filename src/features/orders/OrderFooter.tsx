@@ -45,9 +45,11 @@ export function OrderFooter({
               ? `Ready in about ${estimate.totalMinutes} min`
               : 'Nothing to cook: hand it over straight away'}
           </p>
-          {estimate.totalMinutes > 0 && (
-            <p className="text-muted mt-1 text-sm">{describeEstimate(estimate)}</p>
-          )}
+          {describeEstimate(estimate).map((line) => (
+            <p key={line} className="text-muted mt-1 text-sm">
+              {line}
+            </p>
+          ))}
         </div>
       )}
 

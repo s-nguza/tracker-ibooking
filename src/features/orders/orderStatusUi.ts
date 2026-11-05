@@ -135,12 +135,14 @@ export function describeRepeatCustomer(customer: RepeatCustomer): string {
   return `Repeat customer · ${PREFERENCE[customer.preferredChannel]}`;
 }
 
-/** How the ready time was worked out: "10 min to make + 18 min for 3 orders ahead". */
-export function describeEstimate(estimate: ReadyEstimate): string {
-  const make = `${estimate.prepMinutes} min to make`;
-  if (estimate.ordersAhead === 0) return `${make} · kitchen is free`;
-  const orders = estimate.ordersAhead === 1 ? '1 order' : `${estimate.ordersAhead} orders`;
-  return `${make} + ${estimate.queueMinutes} min for ${orders} ahead`;
+/** How the ready time was worked out, one line per category the order needs. */
+export function describeEstimate(estimate: ReadyEstimate): string[] {
+  return estimate.categories.map(({ category, prepMinutes, ordersAhead, waitMinutes }) => {
+    const make = `${category}: ${prepMinutes} min to make`;
+    if (ordersAhead === 0) return `${make} · free now`;
+    const orders = ordersAhead === 1 ? '1 order' : `${ordersAhead} orders`;
+    return `${make} + ${waitMinutes} min for ${orders} ahead`;
+  });
 }
 
 function capitalize(text: string): string {

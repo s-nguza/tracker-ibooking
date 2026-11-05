@@ -22,6 +22,7 @@ function line(itemId: string, quantity: number): OrderLine {
     itemId,
     name: item.name,
     category: item.category,
+    prepMinutes: item.prepMinutes,
     quantity,
     priceCents: item.priceCents,
   };

@@ -28,13 +28,13 @@ import {
 import { formatCents } from '../../domain/money';
 import {
   actualPrepMs,
+  buildOrderLines,
   currentPause,
   estimateReadyTime,
   formatElapsed,
   minutesBetween,
   minutesLate,
   orderItemCount,
-  orderPrepMinutes,
   orderTotalCents,
   setLineQuantity,
   toOrderLines,
@@ -44,6 +44,7 @@ import {
 } from '../../domain/orders';
 import { formatZaPhone, normalizeZaPhone } from '../../domain/phone';
 import { copyText } from './copyText';
+import { KITCHEN_CAPACITY } from './kitchenCapacity';
 import { MenuPicker } from './MenuPicker';
 import { useOrders } from './ordersContext';
 import {
@@ -543,7 +544,7 @@ function EditItems({
   const now = useNow();
   const [lines, setLines] = useState<OrderLines>(() => toOrderLines(order.lines));
   const empty = orderItemCount(lines) === 0;
-  const estimate = estimateReadyTime(orderPrepMinutes(menu, lines), orders, now);
+  const estimate = estimateReadyTime(buildOrderLines(menu, lines), orders, KITCHEN_CAPACITY, now);
 
   return (
     <>
@@ -564,7 +565,11 @@ function EditItems({
             ) : (
               <>
                 <p className="text-ink font-semibold">Ready in about {estimate.totalMinutes} min</p>
-                <p className="text-sm">{describeEstimate(estimate)}</p>
+                {describeEstimate(estimate).map((line) => (
+                  <p key={line} className="text-sm">
+                    {line}
+                  </p>
+                ))}
               </>
             )}
           </div>

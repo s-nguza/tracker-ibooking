@@ -75,47 +75,124 @@ export function orderPrepMinutes(menu: readonly MenuItem[], lines: OrderLines): 
  */
 export const QUEUE_OVERLAP_MINUTES = 2;
 
+/** How many orders each category can cook at once. Categories not listed can do one. */
+export type CategoryCapacity = Readonly<Record<string, number>>;
+
+function capacityOf(capacity: CategoryCapacity, category: string): number {
+  return Math.max(1, capacity[category] ?? 1);
+}
+
+/** How long the order holds up a category: its slowest item there. 0 if nothing cooks there. */
+function prepInCategory(order: Pick<Order, 'lines'>, category: string): number {
+  return order.lines.reduce(
+    (slowest, line) => (line.category === category ? Math.max(slowest, line.prepMinutes) : slowest),
+    0,
+  );
+}
+
+/** Categories on the menu that involve cooking; drinks don't take up any kitchen time. */
+export function cookedCategories(menu: readonly MenuItem[]): string[] {
+  return [...new Set(menu.filter((i) => i.prepMinutes > 0).map((i) => i.category))];
+}
+
+export interface CategoryStatus {
+  category: string;
+  /** Orders cooking in this category right now. Paused ones free up their place. */
+  cooking: Order[];
+  capacity: number;
+  full: boolean;
+}
+
+/** What each category is doing right now, and whether it has room for another order. */
+export function kitchenStatus(
+  categories: readonly string[],
+  orders: readonly Order[],
+  capacity: CategoryCapacity,
+): CategoryStatus[] {
+  return categories.map((category) => {
+    const cooking = orders.filter(
+      (o) => o.status === 'preparing' && !currentPause(o) && prepInCategory(o, category) > 0,
+    );
+    const limit = capacityOf(capacity, category);
+    return { category, cooking, capacity: limit, full: cooking.length >= limit };
+  });
+}
+
+/** The categories this order needs that have no room right now. */
+export function fullCategories(order: Order, statuses: readonly CategoryStatus[]): string[] {
+  return statuses
+    .filter((s) => s.full && prepInCategory(order, s.category) > 0)
+    .map((s) => s.category);
+}
+
+/**
+ * How long until a category has room for one more order, given the confirmed
+ * and preparing orders ahead that cook there. Each takes the first place to come
+ * free: what's left of its time there, less QUEUE_OVERLAP_MINUTES. Orders in
+ * other categories don't count, and neither do quotes still awaiting a yes.
+ */
+function waitForCategory(
+  category: string,
+  orders: readonly Order[],
+  capacity: CategoryCapacity,
+  now: number,
+): { ordersAhead: number; waitMinutes: number } {
+  const ahead = orders.filter(
+    (o) =>
+      (o.status === 'confirmed' || o.status === 'preparing') && prepInCategory(o, category) > 0,
+  );
+  const isCooking = (o: Order) => o.status === 'preparing' && !currentPause(o);
+  const inOrder = [
+    ...ahead.filter(isCooking),
+    ...ahead.filter((o) => !isCooking(o)).sort(byQueueNumber),
+  ];
+
+  // Minutes until each place in the category comes free.
+  const places = new Array<number>(capacityOf(capacity, category)).fill(0);
+  for (const order of inOrder) {
+    const cooked = order.status === 'preparing' ? Math.floor(cookingMs(order, now) / 60_000) : 0;
+    const left = Math.max(0, prepInCategory(order, category) - cooked - QUEUE_OVERLAP_MINUTES);
+    places[places.indexOf(Math.min(...places))]! += left;
+  }
+  return { ordersAhead: ahead.length, waitMinutes: Math.min(...places) };
+}
+
 export interface ReadyEstimate {
-  /** This order's own prep time. */
-  prepMinutes: number;
-  /** Orders the kitchen has to get through first. */
-  ordersAhead: number;
-  /** Time to clear those orders, after the overlap discount. */
-  queueMinutes: number;
-  /** What to tell the customer: prep + queue. */
+  /** One entry per category the order needs cooked. */
+  categories: {
+    category: string;
+    prepMinutes: number;
+    ordersAhead: number;
+    waitMinutes: number;
+  }[];
+  /** What to tell the customer: when the last of those categories will be done. */
   totalMinutes: number;
 }
 
 /**
- * Ready time to tell the customer:
- *   this order's prep time
- *   + for each confirmed or preparing order ahead of it: its prep time
- *     (what's left of it, if already started) minus QUEUE_OVERLAP_MINUTES.
- * Quotes still awaiting a yes aren't in the queue. Orders with nothing to
- * cook are handed over straight away, so they don't wait for the queue.
+ * Ready time to tell the customer. Each category works on its own, so an order
+ * only waits for orders in the categories it needs: a kota isn't held up by pap.
+ * For each of those categories it's the wait for room there plus the slowest
+ * item from it, and the order is ready when the last one finishes. Orders with
+ * nothing to cook are handed over straight away.
  */
 export function estimateReadyTime(
-  prepMinutes: number,
+  lines: readonly OrderLine[],
   orders: readonly Order[],
+  capacity: CategoryCapacity,
   now: number,
 ): ReadyEstimate {
-  if (prepMinutes === 0) return { prepMinutes, ordersAhead: 0, queueMinutes: 0, totalMinutes: 0 };
-
-  const ahead = orders.filter((o) => o.status === 'confirmed' || o.status === 'preparing');
-  const queueMinutes = ahead.reduce((sum, order) => {
-    const left =
-      order.status === 'preparing'
-        ? order.prepMinutes - Math.floor(cookingMs(order, now) / 60_000)
-        : order.prepMinutes;
-    return sum + Math.max(0, left - QUEUE_OVERLAP_MINUTES);
-  }, 0);
-
-  return {
-    prepMinutes,
-    ordersAhead: ahead.length,
-    queueMinutes,
-    totalMinutes: prepMinutes + queueMinutes,
-  };
+  const order = { lines: [...lines] };
+  const needed = [...new Set(lines.map((l) => l.category))].filter(
+    (category) => prepInCategory(order, category) > 0,
+  );
+  const categories = needed.map((category) => ({
+    category,
+    prepMinutes: prepInCategory(order, category),
+    ...waitForCategory(category, orders, capacity, now),
+  }));
+  const totalMinutes = Math.max(0, ...categories.map((c) => c.waitMinutes + c.prepMinutes));
+  return { categories, totalMinutes };
 }
 
 /**
@@ -133,6 +210,8 @@ export interface OrderLine {
   itemId: string;
   name: string;
   category: string;
+  /** Average prep time when ordered, which decides how long it holds up its category. */
+  prepMinutes: number;
   quantity: number;
   priceCents: Cents;
 }
@@ -298,6 +377,7 @@ export function buildOrderLines(menu: readonly MenuItem[], lines: OrderLines): O
     itemId: item.id,
     name: item.name,
     category: item.category,
+    prepMinutes: item.prepMinutes,
     quantity,
     priceCents: item.priceCents,
   }));
@@ -338,12 +418,19 @@ export function minutesToStart(order: Order, now: number): number {
 }
 
 /**
- * The order to work through. Anything that has to start now comes first, most
+ * The order to work through. Orders that can't start yet (`isBlocked`, because
+ * their category is full) go below the ones that can. Then anything that has to
+ * start now comes first, most
  * overdue on top, so nobody gets skipped. After that the longest cook goes
  * first: it needs the head start, and quick orders can be fitted in around it.
  */
-export function byPriority(orders: readonly Order[], now: number): Order[] {
+export function byPriority(
+  orders: readonly Order[],
+  now: number,
+  isBlocked: (order: Order) => boolean = () => false,
+): Order[] {
   return [...orders].sort((a, b) => {
+    if (isBlocked(a) !== isBlocked(b)) return isBlocked(a) ? 1 : -1;
     const aStartsIn = mustStartBy(a) - now;
     const bStartsIn = mustStartBy(b) - now;
     const aUrgent = aStartsIn <= 0;
@@ -396,16 +483,18 @@ export function requoteOrder(
   menu: readonly MenuItem[],
   lines: OrderLines,
   orders: readonly Order[],
+  capacity: CategoryCapacity,
   now: number,
 ): Order {
   if (order.status !== 'awaiting' || orderItemCount(lines) === 0) return order;
   const prepMinutes = orderPrepMinutes(menu, lines);
+  const newLines = buildOrderLines(menu, lines);
   return {
     ...order,
-    lines: buildOrderLines(menu, lines),
+    lines: newLines,
     totalCents: orderTotalCents(menu, lines),
     prepMinutes,
-    readyMinutes: estimateReadyTime(prepMinutes, orders, now).totalMinutes,
+    readyMinutes: estimateReadyTime(newLines, orders, capacity, now).totalMinutes,
     statusChangedAt: now,
   };
 }
@@ -414,9 +503,14 @@ export function requoteOrder(
  * The customer said yes to a quote. The queue may have grown since we quoted,
  * so the ready time is re-estimated against the queue as it is now.
  */
-export function confirmQuote(order: Order, orders: readonly Order[], now: number): Order {
+export function confirmQuote(
+  order: Order,
+  orders: readonly Order[],
+  capacity: CategoryCapacity,
+  now: number,
+): Order {
   if (order.status !== 'awaiting') return order;
-  const readyMinutes = estimateReadyTime(order.prepMinutes, orders, now).totalMinutes;
+  const readyMinutes = estimateReadyTime(order.lines, orders, capacity, now).totalMinutes;
   return {
     ...order,
     status: 'confirmed',

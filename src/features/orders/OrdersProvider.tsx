@@ -10,6 +10,7 @@ import {
   resumeOrder,
   type Order,
 } from '../../domain/orders';
+import { KITCHEN_CAPACITY } from './kitchenCapacity';
 import { OrdersContext, type NewOrder, type OrdersStore } from './ordersContext';
 import { createSampleOrders } from './sampleOrders';
 
@@ -50,13 +51,17 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     },
     advance: (orderId) =>
       update(orderId, (order, now, all) =>
-        order.status === 'awaiting' ? confirmQuote(order, all, now) : advanceOrder(order, now),
+        order.status === 'awaiting'
+          ? confirmQuote(order, all, KITCHEN_CAPACITY, now)
+          : advanceOrder(order, now),
       ),
     cancel: (orderId) => update(orderId, cancelOrder),
     pause: (orderId, reason) => update(orderId, (order, now) => pauseOrder(order, reason, now)),
     resume: (orderId) => update(orderId, resumeOrder),
     editItems: (orderId, menu, lines) =>
-      update(orderId, (order, now, all) => requoteOrder(order, menu, lines, all, now)),
+      update(orderId, (order, now, all) =>
+        requoteOrder(order, menu, lines, all, KITCHEN_CAPACITY, now),
+      ),
     addPhone: (orderId, phone) => update(orderId, (order) => ({ ...order, phone })),
   };
 

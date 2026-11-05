@@ -20,6 +20,7 @@ import { ChannelPicker } from './ChannelPicker';
 import { copyText } from './copyText';
 import { CustomerCard } from './CustomerCard';
 import { contactProblem, type CustomerContact } from './customerContact';
+import { KITCHEN_CAPACITY } from './kitchenCapacity';
 import { MenuPicker } from './MenuPicker';
 import { OrderConfirmed } from './OrderConfirmed';
 import { OrderFooter } from './OrderFooter';
@@ -44,7 +45,7 @@ export function NewOrderScreen() {
   const itemCount = orderItemCount(lines);
   const totalCents = orderTotalCents(menu, lines);
   const prepMinutes = orderPrepMinutes(menu, lines);
-  const estimate = estimateReadyTime(prepMinutes, orders, now);
+  const estimate = estimateReadyTime(selected, orders, KITCHEN_CAPACITY, now);
   const blocker =
     contactProblem(channel, contact) ?? (itemCount === 0 ? 'Add at least one item' : null);
 
