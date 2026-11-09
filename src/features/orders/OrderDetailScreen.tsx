@@ -104,7 +104,7 @@ export function OrderDetailScreen() {
     <div className={SCREEN}>
       <header className="bg-canvas sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-3">
         <Link
-          to={order ? boardUrlFor(order.status) : '/'}
+          to={order ? boardUrlFor(order.status) : '/orders'}
           aria-label="Back to orders"
           className={ROUND_BUTTON}
         >
@@ -129,7 +129,7 @@ export function OrderDetailScreen() {
           <p className="text-muted">
             This order doesn’t exist any more. Orders reset when the page is refreshed.
           </p>
-          <Link to="/" className={`${BUTTON_PRIMARY} max-w-60`}>
+          <Link to="/orders" className={`${BUTTON_PRIMARY} max-w-60`}>
             Back to orders
           </Link>
         </main>

@@ -76,7 +76,7 @@ export function OrderConfirmed({ order, quoteCopied, onNewOrder }: OrderConfirme
       </div>
 
       <div className="mt-auto grid w-full grid-cols-2 gap-3 pt-8">
-        <Link to="/" className={BUTTON_OUTLINE}>
+        <Link to="/orders" className={BUTTON_OUTLINE}>
           View orders
         </Link>
         <button type="button" onClick={onNewOrder} className={BUTTON_PRIMARY}>

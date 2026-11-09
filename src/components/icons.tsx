@@ -129,3 +129,24 @@ export function PersonIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function ReceiptCheckIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 48 56" width={46} height={54} aria-hidden="true" {...props}>
+      <path
+        d="M5 4a4 4 0 0 1 4-4h30a4 4 0 0 1 4 4v48l-5-3.5-4.75 3.5-4.75-3.5L24 52l-4.5-3.5-4.75 3.5-4.75-3.5L5 52z"
+        fill="#fff"
+      />
+      <rect x="12" y="9" width="20" height="3.5" rx="1.75" fill="#b9c4ff" />
+      <rect x="12" y="17" width="14" height="3.5" rx="1.75" fill="#b9c4ff" />
+      <path
+        d="m15 33 6.5 6.5L34 27"
+        fill="none"
+        stroke="#3d5afe"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

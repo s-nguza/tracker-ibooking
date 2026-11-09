@@ -46,7 +46,7 @@ export function boardTabFor(status: OrderStatus): BoardTab {
 /** Board URL that opens on the tab where this order lives. */
 export function boardUrlFor(status: OrderStatus): string {
   const tab = boardTabFor(status);
-  return tab === 'confirmed' ? '/' : `/?tab=${tab}`;
+  return tab === 'confirmed' ? '/orders' : `/orders?tab=${tab}`;
 }
 
 export const STATUS_BADGE: Record<OrderStatus, { label: string; tone: BadgeTone }> = {

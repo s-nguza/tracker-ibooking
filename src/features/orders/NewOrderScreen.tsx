@@ -111,7 +111,7 @@ export function NewOrderScreen() {
   return (
     <div className={SCREEN}>
       <header className="bg-canvas sticky top-0 z-10 grid grid-cols-[3rem_1fr_3rem] items-center px-4 py-3">
-        <Link to="/" aria-label="Close" className={ROUND_BUTTON}>
+        <Link to="/orders" aria-label="Close" className={ROUND_BUTTON}>
           <CloseIcon width={22} height={22} />
         </Link>
         <h1 className="text-center text-xl font-extrabold">New order</h1>
