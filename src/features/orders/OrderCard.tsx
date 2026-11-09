@@ -6,6 +6,7 @@ import { formatCents } from '../../domain/money';
 import { orderDisplayName, type Order } from '../../domain/orders';
 import { BADGE_TONES, PAYMENT_BADGE, type BadgeTone } from './orderStatusUi';
 import { OrderTags } from './OrderTags';
+import { SpecialRequestNote } from './SpecialRequest';
 
 interface OrderCardProps {
   order: Order;
@@ -87,6 +88,12 @@ export function OrderCard({
       <div className="mt-3">
         <OrderTags order={order} priority={priority} />
       </div>
+
+      {order.specialRequest && look !== 'muted' && (
+        <div className="mt-3">
+          <SpecialRequestNote text={order.specialRequest} />
+        </div>
+      )}
 
       {!pending && (
         <div className="mt-3 flex min-h-11 items-center justify-between gap-3">

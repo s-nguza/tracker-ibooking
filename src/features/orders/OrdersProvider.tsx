@@ -62,6 +62,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       update(orderId, (order, now, all) =>
         editOrderItems(order, menu, lines, all, KITCHEN_CAPACITY, now),
       ),
+    setSpecialRequest: (orderId, text) =>
+      update(orderId, (order) => ({ ...order, specialRequest: text.trim() || undefined })),
     addPhone: (orderId, phone) => update(orderId, (order) => ({ ...order, phone })),
   };
 

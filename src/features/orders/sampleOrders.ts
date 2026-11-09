@@ -96,7 +96,10 @@ export function createSampleOrders(now: number): Order[] {
       // Already past its ready time, so the board has a late order to show.
       readyBy: now - 3 * MINUTE,
     },
-    sample(now, 15, 'call', 'Nomvula K.', [line('vetkoek-mince', 2)], 'confirmed', 9),
+    {
+      ...sample(now, 15, 'call', 'Nomvula K.', [line('vetkoek-mince', 2)], 'confirmed', 9),
+      specialRequest: 'Only spice',
+    },
     sample(now, 16, 'walk-in', undefined, [line('vetkoek-mince', 1)], 'cancelled', 6),
     sample(now, 17, 'walk-in', undefined, [line('kota', 2)], 'confirmed', 1),
     {

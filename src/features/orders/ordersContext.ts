@@ -19,6 +19,8 @@ export interface OrdersStore {
   resume: (orderId: string) => void;
   /** Changes the items on a quote, or on an order that is confirmed or being prepared. */
   editItems: (orderId: string, menu: readonly MenuItem[], lines: OrderLines) => void;
+  /** Blank text removes the request. */
+  setSpecialRequest: (orderId: string, text: string) => void;
   /** Adds a number to an order that doesn't have one, e.g. a walk-in who'd like a text. */
   addPhone: (orderId: string, e164Phone: string) => void;
 }

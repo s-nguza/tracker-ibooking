@@ -66,6 +66,7 @@ import { OrderTags } from './OrderTags';
 import { PauseDialog } from './PauseDialog';
 import { PrepTimer } from './PrepTimer';
 import { BUSINESS_NAME } from './sampleOrders';
+import { SpecialRequestField, SpecialRequestNote } from './SpecialRequest';
 import { useMenu } from './useMenu';
 import { useNow } from './useNow';
 
@@ -138,7 +139,7 @@ export function OrderDetailScreen() {
 }
 
 function OrderDetail({ order }: { order: Order }) {
-  const { advance, cancel, editItems, resume } = useOrders();
+  const { advance, cancel, editItems, resume, setSpecialRequest } = useOrders();
   const navigate = useNavigate();
   const now = useNow();
   const menu = useMenu();
@@ -152,8 +153,9 @@ function OrderDetail({ order }: { order: Order }) {
       <EditItems
         order={order}
         onCancel={() => setEditing(false)}
-        onSave={(lines) => {
+        onSave={(lines, specialRequest) => {
           editItems(order.id, menu, lines);
+          setSpecialRequest(order.id, specialRequest);
           setEditing(false);
           setJustEdited(true);
         }}
@@ -277,8 +279,8 @@ function OrderDetail({ order }: { order: Order }) {
         {justEdited && (
           <p className="bg-warn-100 text-warn-800 rounded-2xl px-4 py-3 font-semibold">
             {isQuote
-              ? 'Items updated. Resend the quote so they see the new total before saying yes.'
-              : `Items updated. New total ${formatCents(order.totalCents)}${
+              ? 'Order updated. Resend the quote so they see the new total before saying yes.'
+              : `Order updated. Total ${formatCents(order.totalCents)}${
                   minutesLeft > 0 ? `, ready in about ${minutesLeft} min` : ''
                 }.${order.status === 'preparing' ? ' The timer kept running.' : ''}`}
           </p>
@@ -293,13 +295,18 @@ function OrderDetail({ order }: { order: Order }) {
                 onClick={() => setEditing(true)}
                 className="text-brand-700 -my-2 h-10 px-2 font-bold hover:underline"
               >
-                Edit items
+                Edit order
               </button>
             )}
           </div>
           <div className="mt-2">
             <OrderTags order={order} />
           </div>
+          {order.specialRequest && (
+            <div className="mt-3">
+              <SpecialRequestNote text={order.specialRequest} />
+            </div>
+          )}
           <ul className="divide-line mt-2 divide-y">
             {order.lines.map((line) => (
               <li key={line.itemId} className="flex items-center gap-3 py-2.5">
@@ -567,12 +574,13 @@ function EditItems({
 }: {
   order: Order;
   onCancel: () => void;
-  onSave: (lines: OrderLines) => void;
+  onSave: (lines: OrderLines, specialRequest: string) => void;
 }) {
   const menu = useMenu();
   const { orders } = useOrders();
   const now = useNow();
   const [lines, setLines] = useState<OrderLines>(() => toOrderLines(order.lines));
+  const [specialRequest, setSpecialRequest] = useState(order.specialRequest ?? '');
   const empty = orderItemCount(lines) === 0;
   // Run the real edit, so the time shown here is the time the order will get on save.
   const minutes = minutesUntilReady(
@@ -589,12 +597,13 @@ function EditItems({
 
   return (
     <>
-      <main className="flex-1 px-5 pt-1 pb-6">
+      <main className="flex-1 space-y-5 px-5 pt-1 pb-6">
         <MenuPicker
           menu={menu}
           lines={lines}
           onQuantityChange={(id, qty) => setLines((prev) => setLineQuantity(prev, id, qty))}
         />
+        <SpecialRequestField value={specialRequest} onChange={setSpecialRequest} />
       </main>
       <footer className={BOTTOM_BAR}>
         <div className="flex items-center justify-between gap-4">
@@ -625,10 +634,10 @@ function EditItems({
           <button
             type="button"
             disabled={empty}
-            onClick={() => onSave(lines)}
+            onClick={() => onSave(lines, specialRequest)}
             className={BUTTON_PRIMARY}
           >
-            Save items
+            Save changes
           </button>
         </div>
       </footer>

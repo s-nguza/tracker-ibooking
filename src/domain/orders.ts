@@ -246,6 +246,8 @@ export interface Order {
   readyAt?: number;
   /** Every time cooking was paused, oldest first. The last one is open while it's paused. */
   pauses?: OrderPause[];
+  /** What the customer asked for that the menu doesn't cover, e.g. "only spice". */
+  specialRequest?: string;
   /** Items changed after Start, so its timing isn't used to learn prep times. */
   editedWhileCooking?: boolean;
 }
@@ -528,8 +530,9 @@ export function editOrderItems(
     };
   }
 
+  if (sameCookingTime(order.lines, newLines)) return edited;
+
   if (order.status === 'confirmed') {
-    if (sameCookingTime(order.lines, newLines)) return edited;
     const ahead = orders.filter(
       (o) =>
         o.id !== order.id &&

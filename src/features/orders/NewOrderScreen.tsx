@@ -28,6 +28,7 @@ import { OrderFooter } from './OrderFooter';
 import { useOrders } from './ordersContext';
 import { describeRepeatCustomer } from './orderStatusUi';
 import { PaymentPicker } from './PaymentPicker';
+import { SpecialRequestField } from './SpecialRequest';
 import { useMenu } from './useMenu';
 import { useNow } from './useNow';
 
@@ -41,6 +42,7 @@ export function NewOrderScreen() {
   const [contact, setContact] = useState<CustomerContact>(EMPTY_CONTACT);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [lines, setLines] = useState<OrderLines>({});
+  const [specialRequest, setSpecialRequest] = useState('');
   const [confirmed, setConfirmed] = useState<Order | null>(null);
   const [quoteCopied, setQuoteCopied] = useState<boolean | null>(null);
 
@@ -72,6 +74,7 @@ export function NewOrderScreen() {
       {
         channel,
         paymentMethod: method,
+        specialRequest: specialRequest.trim() || undefined,
         customerName: contact.name.trim() || undefined,
         phone: phone ?? undefined,
         lines: selected,
@@ -100,6 +103,7 @@ export function NewOrderScreen() {
     setContact(EMPTY_CONTACT);
     setPaymentMethod(null);
     setLines({});
+    setSpecialRequest('');
     setConfirmed(null);
     setQuoteCopied(null);
   }
@@ -140,6 +144,7 @@ export function NewOrderScreen() {
               lines={lines}
               onQuantityChange={(id, qty) => setLines((prev) => setLineQuantity(prev, id, qty))}
             />
+            <SpecialRequestField value={specialRequest} onChange={setSpecialRequest} />
           </main>
           <OrderFooter
             itemCount={itemCount}
