@@ -216,10 +216,14 @@ export interface OrderLine {
   priceCents: Cents;
 }
 
+export type PaymentMethod = 'cash' | 'card';
+
 export interface Order {
   id: string;
   queueNumber: number;
   channel: OrderChannel;
+  /** How the customer said they'll pay, so staff know what to collect at pickup. */
+  paymentMethod: PaymentMethod;
   customerName?: string;
   /** E.164, when the customer gave a number. */
   phone?: string;

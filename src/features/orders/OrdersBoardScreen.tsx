@@ -22,7 +22,13 @@ import { KITCHEN_CAPACITY } from './kitchenCapacity';
 import { CardButton, OrderCard } from './OrderCard';
 import { PauseDialog } from './PauseDialog';
 import { useOrders } from './ordersContext';
-import { BOARD_TABS, isBoardTab, type BadgeTone, type BoardTab } from './orderStatusUi';
+import {
+  BOARD_TABS,
+  isBoardTab,
+  STATUS_BADGE,
+  type BadgeTone,
+  type BoardTab,
+} from './orderStatusUi';
 import { PrepTimer } from './PrepTimer';
 import { BUSINESS_NAME } from './sampleOrders';
 import { useMenu } from './useMenu';
@@ -223,7 +229,7 @@ function AwaitingCard({ order, now }: { order: Order; now: number }) {
     <OrderCard
       order={order}
       look="pending"
-      badge={{ label: 'Awaiting yes', tone: 'muted' }}
+      badge={STATUS_BADGE.awaiting}
       detail={quoted === 0 ? 'quoted just now' : `quoted ${quoted} min ago`}
     />
   );
@@ -299,6 +305,7 @@ function ReadyTab({ orders, now }: { orders: Order[]; now: number }) {
             key={order.id}
             order={order}
             badge={{ label: `${Math.max(1, waiting)} min`, tone: waitTone(waiting) }}
+            showPayment
             action={
               <CardButton tone="primary" onClick={() => advance(order.id)}>
                 Collected

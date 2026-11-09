@@ -3,11 +3,12 @@ import {
   type Order,
   type OrderChannel,
   type OrderStatus,
+  type PaymentMethod,
   type ReadyEstimate,
   type RepeatCustomer,
 } from '../../domain/orders';
 
-export type BadgeTone = 'muted' | 'warn' | 'info' | 'ok' | 'alert';
+export type BadgeTone = 'muted' | 'warn' | 'info' | 'ok' | 'alert' | 'quote';
 
 export const BADGE_TONES: Record<BadgeTone, string> = {
   muted: 'bg-track text-ink-soft',
@@ -15,6 +16,12 @@ export const BADGE_TONES: Record<BadgeTone, string> = {
   info: 'bg-brand-100 text-brand-700',
   ok: 'bg-ok-100 text-ok-800',
   alert: 'bg-red-100 text-red-700',
+  quote: 'bg-purple-100 text-purple-800',
+};
+
+export const PAYMENT_BADGE: Record<PaymentMethod, { label: string; tone: BadgeTone }> = {
+  cash: { label: 'Cash payment', tone: 'ok' },
+  card: { label: 'Card payment', tone: 'info' },
 };
 
 export type BoardTab = Extract<OrderStatus, 'confirmed' | 'preparing' | 'ready' | 'done'>;
@@ -43,7 +50,7 @@ export function boardUrlFor(status: OrderStatus): string {
 }
 
 export const STATUS_BADGE: Record<OrderStatus, { label: string; tone: BadgeTone }> = {
-  awaiting: { label: 'Awaiting yes', tone: 'muted' },
+  awaiting: { label: 'Awaiting yes', tone: 'quote' },
   confirmed: { label: 'Confirmed', tone: 'warn' },
   preparing: { label: 'Preparing', tone: 'info' },
   ready: { label: 'Ready', tone: 'ok' },

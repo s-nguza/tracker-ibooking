@@ -14,6 +14,7 @@ import {
   type Order,
   type OrderChannel,
   type OrderLines,
+  type PaymentMethod,
 } from '../../domain/orders';
 import { normalizeZaPhone } from '../../domain/phone';
 import { ChannelPicker } from './ChannelPicker';
@@ -26,6 +27,7 @@ import { OrderConfirmed } from './OrderConfirmed';
 import { OrderFooter } from './OrderFooter';
 import { useOrders } from './ordersContext';
 import { describeRepeatCustomer } from './orderStatusUi';
+import { PaymentPicker } from './PaymentPicker';
 import { useMenu } from './useMenu';
 import { useNow } from './useNow';
 
@@ -37,6 +39,7 @@ export function NewOrderScreen() {
   const now = useNow();
   const [channel, setChannel] = useState<OrderChannel>('call');
   const [contact, setContact] = useState<CustomerContact>(EMPTY_CONTACT);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [lines, setLines] = useState<OrderLines>({});
   const [confirmed, setConfirmed] = useState<Order | null>(null);
   const [quoteCopied, setQuoteCopied] = useState<boolean | null>(null);
@@ -47,7 +50,12 @@ export function NewOrderScreen() {
   const prepMinutes = orderPrepMinutes(menu, lines);
   const estimate = estimateReadyTime(selected, orders, KITCHEN_CAPACITY, now);
   const blocker =
-    contactProblem(channel, contact) ?? (itemCount === 0 ? 'Add at least one item' : null);
+    contactProblem(channel, contact) ??
+    (paymentMethod === null
+      ? 'Choose cash or card'
+      : itemCount === 0
+        ? 'Add at least one item'
+        : null);
 
   const phone = normalizeZaPhone(contact.phone);
   const repeatCustomer = phone ? findRepeatCustomer(orders, phone) : null;
@@ -59,10 +67,11 @@ export function NewOrderScreen() {
     setContact(known?.name && !next.name.trim() ? { ...next, name: known.name } : next);
   }
 
-  function saveOrder(asQuote: boolean): Order {
+  function saveOrder(method: PaymentMethod, asQuote: boolean): Order {
     const order = addOrder(
       {
         channel,
+        paymentMethod: method,
         customerName: contact.name.trim() || undefined,
         phone: phone ?? undefined,
         lines: selected,
@@ -77,18 +86,19 @@ export function NewOrderScreen() {
   }
 
   function confirm() {
-    if (blocker) return;
-    saveOrder(false);
+    if (blocker || !paymentMethod) return;
+    saveOrder(paymentMethod, false);
   }
 
   async function copyQuote() {
-    if (blocker) return;
-    const order = saveOrder(true);
+    if (blocker || !paymentMethod) return;
+    const order = saveOrder(paymentMethod, true);
     setQuoteCopied(await copyText(orderQuoteMessage(order)));
   }
 
   function startNextOrder() {
     setContact(EMPTY_CONTACT);
+    setPaymentMethod(null);
     setLines({});
     setConfirmed(null);
     setQuoteCopied(null);
@@ -124,6 +134,7 @@ export function NewOrderScreen() {
                 </p>
               )}
             </div>
+            <PaymentPicker value={paymentMethod} onChange={setPaymentMethod} />
             <MenuPicker
               menu={menu}
               lines={lines}

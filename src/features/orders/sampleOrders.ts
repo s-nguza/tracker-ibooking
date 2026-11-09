@@ -43,6 +43,7 @@ function sample(
     id: `sample-${queueNumber}`,
     queueNumber,
     channel,
+    paymentMethod: queueNumber % 2 === 0 ? 'card' : 'cash',
     customerName,
     lines,
     totalCents,

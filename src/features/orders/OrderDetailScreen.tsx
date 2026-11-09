@@ -55,6 +55,7 @@ import {
   customerTitle,
   describeEstimate,
   orderBadge,
+  PAYMENT_BADGE,
   PROGRESS_STEPS,
   statusTimeLabel,
 } from './orderStatusUi';
@@ -298,6 +299,14 @@ function OrderDetail({ order }: { order: Order }) {
           <div className="border-line-strong mt-1 flex items-center justify-between border-t border-dashed pt-3">
             <span className="text-muted text-lg font-semibold">Total</span>
             <span className="text-3xl font-extrabold">{formatCents(order.totalCents)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-muted font-semibold">Payment</span>
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-bold ${BADGE_TONES[PAYMENT_BADGE[order.paymentMethod].tone]}`}
+            >
+              {PAYMENT_BADGE[order.paymentMethod].label}
+            </span>
           </div>
         </section>
 

@@ -4,7 +4,7 @@ import { CARD } from '../../components/styles';
 import { describeLines } from '../../domain/messages';
 import { formatCents } from '../../domain/money';
 import { orderDisplayName, type Order } from '../../domain/orders';
-import { BADGE_TONES, type BadgeTone } from './orderStatusUi';
+import { BADGE_TONES, PAYMENT_BADGE, type BadgeTone } from './orderStatusUi';
 import { OrderTags } from './OrderTags';
 
 interface OrderCardProps {
@@ -20,6 +20,8 @@ interface OrderCardProps {
   look?: 'active' | 'pending' | 'muted';
   /** Shown after the item list, e.g. "quoted just now". */
   detail?: string;
+  /** Shows how they'll pay under the total, for orders about to be collected. */
+  showPayment?: boolean;
   /** Button on the card (Start, Ready…). Sits above the card's link so both stay tappable. */
   action?: ReactNode;
 }
@@ -33,6 +35,7 @@ export function OrderCard({
   priority,
   look = 'active',
   detail,
+  showPayment = false,
   action,
 }: OrderCardProps) {
   const pending = look === 'pending';
@@ -87,7 +90,16 @@ export function OrderCard({
 
       {!pending && (
         <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
-          <p className="text-xl font-extrabold">{formatCents(order.totalCents)}</p>
+          <div>
+            <p className="text-xl font-extrabold">{formatCents(order.totalCents)}</p>
+            {showPayment && (
+              <span
+                className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-sm font-bold whitespace-nowrap ${BADGE_TONES[PAYMENT_BADGE[order.paymentMethod].tone]}`}
+              >
+                {PAYMENT_BADGE[order.paymentMethod].label}
+              </span>
+            )}
+          </div>
           {action && <div className="relative z-1 flex flex-wrap justify-end gap-2">{action}</div>}
         </div>
       )}
