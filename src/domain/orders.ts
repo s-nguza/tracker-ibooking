@@ -246,6 +246,8 @@ export interface Order {
   readyAt?: number;
   /** Every time cooking was paused, oldest first. The last one is open while it's paused. */
   pauses?: OrderPause[];
+  /** Items changed after Start, so its timing isn't used to learn prep times. */
+  editedWhileCooking?: boolean;
 }
 
 export interface OrderPause {
@@ -349,7 +351,8 @@ export function withLearnedPrepTimes(
 
   for (const order of orders) {
     const actual = actualPrepMs(order);
-    if (actual === null) continue;
+    // Items changed mid-cook, so the timer doesn't measure any one set of items.
+    if (actual === null || order.editedWhileCooking) continue;
     const slowest = order.lines.reduce<OrderLine | null>(
       (best, line) => (!best || prepOf(line.itemId) > prepOf(best.itemId) ? line : best),
       null,
@@ -476,13 +479,27 @@ export function toOrderLines(lines: readonly OrderLine[]): OrderLines {
   return Object.fromEntries(lines.map((l) => [l.itemId, l.quantity]));
 }
 
+/** Whether two sets of lines keep every category busy for the same time. */
+function sameCookingTime(a: readonly OrderLine[], b: readonly OrderLine[]): boolean {
+  const categories = new Set([...a, ...b].map((line) => line.category));
+  return [...categories].every(
+    (category) =>
+      prepInCategory({ lines: [...a] }, category) === prepInCategory({ lines: [...b] }, category),
+  );
+}
+
 /**
- * Replaces the items on a quote that the customer hasn't accepted yet. The
- * quote clock restarts, because they need the new quote before saying yes.
- * Orders past the quote stage, or edits that leave no items, are unchanged.
- * `orders` is today's list, used to re-estimate the ready time against the queue.
+ * Replaces the items on an order that hasn't been finished. Edits that leave
+ * no items, or orders already ready, are unchanged. `orders` is today's list.
+ *
+ * - Quote: re-estimated against the queue, and the quote clock restarts because
+ *   they need the new quote before saying yes.
+ * - Confirmed: keeps its place. If the cooking changed, the ready time is
+ *   re-estimated against only the orders ahead of it.
+ * - Preparing: the timer keeps running and the ready time moves by however much
+ *   the order's prep time changed.
  */
-export function requoteOrder(
+export function editOrderItems(
   order: Order,
   menu: readonly MenuItem[],
   lines: OrderLines,
@@ -490,17 +507,53 @@ export function requoteOrder(
   capacity: CategoryCapacity,
   now: number,
 ): Order {
-  if (order.status !== 'awaiting' || orderItemCount(lines) === 0) return order;
+  const editable =
+    order.status === 'awaiting' || order.status === 'confirmed' || order.status === 'preparing';
+  if (!editable || orderItemCount(lines) === 0) return order;
+
   const prepMinutes = orderPrepMinutes(menu, lines);
   const newLines = buildOrderLines(menu, lines);
-  return {
+  const edited: Order = {
     ...order,
     lines: newLines,
     totalCents: orderTotalCents(menu, lines),
     prepMinutes,
-    readyMinutes: estimateReadyTime(newLines, orders, capacity, now).totalMinutes,
-    statusChangedAt: now,
   };
+
+  if (order.status === 'awaiting') {
+    return {
+      ...edited,
+      readyMinutes: estimateReadyTime(newLines, orders, capacity, now).totalMinutes,
+      statusChangedAt: now,
+    };
+  }
+
+  if (order.status === 'confirmed') {
+    if (sameCookingTime(order.lines, newLines)) return edited;
+    const ahead = orders.filter(
+      (o) =>
+        o.id !== order.id &&
+        (o.status === 'preparing' ||
+          (o.status === 'confirmed' && o.queueNumber < order.queueNumber)),
+    );
+    const readyMinutes = estimateReadyTime(newLines, ahead, capacity, now).totalMinutes;
+    return { ...edited, readyMinutes, readyBy: readyByTime(now, readyMinutes) };
+  }
+
+  const changeMinutes = prepMinutes - order.prepMinutes;
+  return {
+    ...edited,
+    readyMinutes: Math.max(0, order.readyMinutes + changeMinutes),
+    readyBy: order.readyBy === undefined ? undefined : order.readyBy + changeMinutes * 60_000,
+    editedWhileCooking: true,
+  };
+}
+
+/** Whole minutes until the order should be ready; at least 1 while cooking is still owed. */
+export function minutesUntilReady(order: Order, now: number): number {
+  if (order.readyMinutes === 0) return 0;
+  if (order.readyBy === undefined) return order.readyMinutes;
+  return Math.max(1, Math.ceil((order.readyBy - now) / 60_000));
 }
 
 /**

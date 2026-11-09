@@ -17,7 +17,7 @@ export interface OrdersStore {
   cancel: (orderId: string) => void;
   pause: (orderId: string, reason: string) => void;
   resume: (orderId: string) => void;
-  /** Changes the items on a quote that is still awaiting the customer's yes. */
+  /** Changes the items on a quote, or on an order that is confirmed or being prepared. */
   editItems: (orderId: string, menu: readonly MenuItem[], lines: OrderLines) => void;
   /** Adds a number to an order that doesn't have one, e.g. a walk-in who'd like a text. */
   addPhone: (orderId: string, e164Phone: string) => void;

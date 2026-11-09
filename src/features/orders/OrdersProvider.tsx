@@ -3,10 +3,10 @@ import {
   advanceOrder,
   cancelOrder,
   confirmQuote,
+  editOrderItems,
   nextQueueNumber,
   pauseOrder,
   readyByTime,
-  requoteOrder,
   resumeOrder,
   type Order,
 } from '../../domain/orders';
@@ -60,7 +60,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     resume: (orderId) => update(orderId, resumeOrder),
     editItems: (orderId, menu, lines) =>
       update(orderId, (order, now, all) =>
-        requoteOrder(order, menu, lines, all, KITCHEN_CAPACITY, now),
+        editOrderItems(order, menu, lines, all, KITCHEN_CAPACITY, now),
       ),
     addPhone: (orderId, phone) => update(orderId, (order) => ({ ...order, phone })),
   };

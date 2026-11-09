@@ -23,6 +23,7 @@ import {
   orderConfirmationMessage,
   orderQuoteMessage,
   orderReadyMessage,
+  orderUpdatedMessage,
   whatsAppLink,
 } from '../../domain/messages';
 import { formatCents } from '../../domain/money';
@@ -30,10 +31,12 @@ import {
   actualPrepMs,
   buildOrderLines,
   currentPause,
+  editOrderItems,
   estimateReadyTime,
   formatElapsed,
   minutesBetween,
   minutesLate,
+  minutesUntilReady,
   orderItemCount,
   orderTotalCents,
   setLineQuantity,
@@ -163,7 +166,16 @@ function OrderDetail({ order }: { order: Order }) {
   const pause = currentPause(order);
   const pastPauses = (order.pauses ?? []).filter((p) => p.resumedAt !== undefined);
   const nextStep = pause ? 'Resume cooking' : NEXT_STEP[order.status];
-  const message = customerMessage(order);
+  const canEdit = isQuote || order.status === 'confirmed' || order.status === 'preparing';
+  const minutesLeft = minutesUntilReady(order, now);
+  // A confirmed customer needs to hear about the change, not the usual message for this step.
+  const message =
+    justEdited && !isQuote && canEdit
+      ? {
+          label: 'Updated order message',
+          text: orderUpdatedMessage({ ...order, readyMinutes: minutesLeft }),
+        }
+      : customerMessage(order);
   const late = minutesLate(order, now);
   const took = actualPrepMs(order);
   // Back to the tab the order was listed under, so the next one is right there.
@@ -175,6 +187,7 @@ function OrderDetail({ order }: { order: Order }) {
       return;
     }
     advance(order.id);
+    setJustEdited(false);
     // After Start, stay here: the timer has just begun running on this screen.
     if (order.status !== 'confirmed') navigate(boardUrl);
   }
@@ -263,14 +276,18 @@ function OrderDetail({ order }: { order: Order }) {
 
         {justEdited && (
           <p className="bg-warn-100 text-warn-800 rounded-2xl px-4 py-3 font-semibold">
-            Items updated. Resend the quote so they see the new total before saying yes.
+            {isQuote
+              ? 'Items updated. Resend the quote so they see the new total before saying yes.'
+              : `Items updated. New total ${formatCents(order.totalCents)}${
+                  minutesLeft > 0 ? `, ready in about ${minutesLeft} min` : ''
+                }.${order.status === 'preparing' ? ' The timer kept running.' : ''}`}
           </p>
         )}
 
         <section className={`${CARD} p-5`}>
           <div className="flex items-center justify-between">
             <h2 className={SECTION_LABEL}>Order</h2>
-            {isQuote && (
+            {canEdit && (
               <button
                 type="button"
                 onClick={() => setEditing(true)}
@@ -363,7 +380,7 @@ function OrderDetail({ order }: { order: Order }) {
       {nextStep && (
         <footer className={`${BOTTOM_BAR} space-y-3`}>
           {message && (order.phone || isQuote) && (
-            <MessageActions order={order} text={message.text} updatedQuote={justEdited} />
+            <MessageActions order={order} text={message.text} updated={justEdited} />
           )}
           <button type="button" onClick={goToNextStep} className={BUTTON_PRIMARY}>
             {nextStep}
@@ -485,11 +502,11 @@ function CustomerSummary({ order }: { order: Order }) {
 function MessageActions({
   order,
   text,
-  updatedQuote,
+  updated,
 }: {
   order: Order;
   text: string;
-  updatedQuote: boolean;
+  updated: boolean;
 }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
@@ -512,7 +529,11 @@ function MessageActions({
             className="bg-ok-700 hover:bg-ok-800 flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white"
           >
             <ChatIcon className="shrink-0" />
-            {updatedQuote ? 'Send updated quote' : 'Send on WhatsApp'}
+            {updated
+              ? order.status === 'awaiting'
+                ? 'Send updated quote'
+                : 'Send updated order'
+              : 'Send on WhatsApp'}
           </a>
         )}
         <button
@@ -553,7 +574,18 @@ function EditItems({
   const now = useNow();
   const [lines, setLines] = useState<OrderLines>(() => toOrderLines(order.lines));
   const empty = orderItemCount(lines) === 0;
-  const estimate = estimateReadyTime(buildOrderLines(menu, lines), orders, KITCHEN_CAPACITY, now);
+  // Run the real edit, so the time shown here is the time the order will get on save.
+  const minutes = minutesUntilReady(
+    editOrderItems(order, menu, lines, orders, KITCHEN_CAPACITY, now),
+    now,
+  );
+  // The line-by-line working only applies to quotes, which join the back of the queue.
+  const breakdown =
+    order.status === 'awaiting'
+      ? describeEstimate(
+          estimateReadyTime(buildOrderLines(menu, lines), orders, KITCHEN_CAPACITY, now),
+        )
+      : [];
 
   return (
     <>
@@ -569,12 +601,12 @@ function EditItems({
           <div className="text-muted min-w-0">
             {empty ? (
               'Add at least one item'
-            ) : estimate.totalMinutes === 0 ? (
+            ) : minutes === 0 ? (
               'Nothing to cook'
             ) : (
               <>
-                <p className="text-ink font-semibold">Ready in about {estimate.totalMinutes} min</p>
-                {describeEstimate(estimate).map((line) => (
+                <p className="text-ink font-semibold">Ready in about {minutes} min</p>
+                {breakdown.map((line) => (
                   <p key={line} className="text-sm">
                     {line}
                   </p>

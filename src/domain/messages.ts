@@ -49,6 +49,18 @@ export function orderQuoteMessage(details: OrderConfirmationDetails): string {
   ].join('\n');
 }
 
+/** Text sent when the items change on an order the customer already confirmed. */
+export function orderUpdatedMessage(details: OrderConfirmationDetails): string {
+  const name = firstName(details.customerName);
+  const greeting = name ? `Hi ${name}! ` : 'Hi! ';
+  return [
+    `${greeting}We've updated your order #${details.queueNumber}:`,
+    describeLines(details.lines),
+    `New total: ${formatCents(details.totalCents)}`,
+    `Ready ${readyPhrase(details.readyMinutes)}.`,
+  ].join('\n');
+}
+
 export function orderReadyMessage(
   details: Pick<OrderConfirmationDetails, 'queueNumber' | 'customerName'>,
   businessName: string,
