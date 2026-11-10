@@ -105,7 +105,7 @@ interface TextFieldProps {
 function TextField({ label, onChange, error, type = 'text', ...inputProps }: TextFieldProps) {
   return (
     <label className="group block py-3">
-      <span className="text-muted group-focus-within:text-brand-700 text-sm font-medium">
+      <span className="text-muted group-focus-within:text-brand-300 text-sm font-medium">
         {label}
       </span>
       <input
@@ -116,7 +116,7 @@ function TextField({ label, onChange, error, type = 'text', ...inputProps }: Tex
         className="placeholder:text-muted/50 w-full bg-transparent text-lg font-bold outline-none placeholder:font-medium"
         {...inputProps}
       />
-      {error && <span className="block text-sm font-medium text-red-700">{error}</span>}
+      {error && <span className="block text-sm font-medium text-red-300">{error}</span>}
     </label>
   );
 }

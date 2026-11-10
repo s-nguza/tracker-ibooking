@@ -1,8 +1,64 @@
 @import 'tailwindcss';
 
+/* Dark theme throughout, matching the login and register screens. */
 @theme {
   --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
 
+  /** The page background, behind the glow and receipt backdrop. */
+  --color-night: #0b0f1a;
+  /** Cards, bottom bars, sheets and inputs. */
+  --color-surface: #141a28;
+  /** Subtle fills on a surface: quantity boxes, hover states. */
+  --color-canvas: rgb(255 255 255 / 0.05);
+  --color-track: rgb(255 255 255 / 0.07);
+  --color-line: rgb(255 255 255 / 0.07);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+  --color-ink: #ffffff;
+  --color-ink-soft: #d9deea;
+  --color-muted: #98a1b3;
+
+  /* Status colours: a tinted fill (50/100) with light text (300/800) on top. */
+  --color-brand-50: rgb(61 90 254 / 0.12);
+  --color-brand-100: rgb(61 90 254 / 0.2);
+  --color-brand-300: #93a4ff;
+  --color-brand-600: #3d5afe;
+  --color-brand-700: #2a3fc7;
+  /** "iBooking" in the logo. */
+  --color-logo-accent: #93a4ff;
+
+  --color-warn-100: rgb(245 158 11 / 0.16);
+  --color-warn-800: #fbbf24;
+
+  --color-ok-50: rgb(34 197 94 / 0.1);
+  --color-ok-100: rgb(34 197 94 / 0.15);
+  --color-ok-600: #16a34a;
+  --color-ok-700: #15803d;
+  --color-ok-800: #4ade80;
+
+  --shadow-card: 0 8px 24px rgb(0 0 0 / 0.25);
+  --shadow-bar: 0 -8px 24px rgb(0 0 0 / 0.35);
+  --shadow-fab: 0 10px 28px rgb(61 90 254 / 0.45);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-night text-ink antialiased;
+  color-scheme: dark;
+}
+
+/*
+ * Light mode, switched on with the sun button (see components/theme.ts). The same colour
+ * names get light values, so screens need no changes. Login and register keep their own
+ * dark colours.
+ */
+:root[data-theme='light'] {
+  --color-night: #f3f4f7;
+  --color-surface: #ffffff;
   --color-canvas: #f3f4f7;
   --color-track: #e7e9ee;
   --color-line: #e6e8ec;
@@ -13,31 +69,30 @@
 
   --color-brand-50: #eceffe;
   --color-brand-100: #e4e8fe;
-  --color-brand-600: #3d5afe;
-  --color-brand-700: #2a3fc7;
+  /* Used for blue text, so it needs to be dark enough on white. */
+  --color-brand-300: #2a3fc7;
+  --color-logo-accent: #3d5afe;
 
   --color-warn-100: #fdf0c8;
   --color-warn-800: #8a3f0c;
 
   --color-ok-50: #e3f5ea;
   --color-ok-100: #d3f5df;
-  --color-ok-600: #16a34a;
   --color-ok-700: #0a7a3f;
   --color-ok-800: #0a5c30;
 
+  /* Tailwind's own shades used for light text on dark (late, cancel, quotes, paused). */
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-purple-300: #6b21a8;
+  --color-amber-300: #b45309;
+
   --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 8px 24px rgb(16 24 40 / 0.06);
   --shadow-bar: 0 -8px 24px rgb(16 24 40 / 0.08);
-  --shadow-fab: 0 10px 28px rgb(61 90 254 / 0.4);
 }
 
-html,
-body,
-#root {
-  height: 100%;
-}
-
-body {
-  @apply bg-canvas text-ink antialiased;
+:root[data-theme='light'] body {
+  color-scheme: light;
 }
 
 /* In the base layer so utilities like outline-none on text fields can override it. */

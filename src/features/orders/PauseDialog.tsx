@@ -26,7 +26,7 @@ export function PauseDialog({
       ref={dialog}
       onClose={onClose}
       aria-labelledby="pause-title"
-      className="text-ink backdrop:bg-ink/50 mx-auto mt-auto mb-0 w-full max-w-md rounded-t-4xl bg-white p-5"
+      className="text-ink bg-surface mx-auto mt-auto mb-0 w-full max-w-md rounded-t-4xl p-5 backdrop:bg-[rgb(0_0_0/0.6)]"
     >
       <form
         onSubmit={(e) => {
@@ -50,8 +50,8 @@ export function PauseDialog({
               onClick={() => setReason(option)}
               className={`min-h-11 rounded-full px-4 py-2 text-sm font-bold ${
                 reason === option
-                  ? 'bg-ink text-white'
-                  : 'border-line-strong hover:bg-canvas border bg-white'
+                  ? 'bg-brand-600 text-white'
+                  : 'border-line-strong hover:bg-canvas bg-surface border'
               }`}
             >
               {option}

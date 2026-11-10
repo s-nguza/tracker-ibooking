@@ -6,10 +6,19 @@ const GLOWS = {
   register: `radial-gradient(circle 185px at 50% 70px, rgb(${BRAND} / 0.34), rgb(${BRAND} / 0.24) 35%, transparent)`,
 };
 
-/** The dark backdrop: a blue glow over a giant, tilted version of the receipt logo. */
-export function AuthBackground({ glow }: { glow: keyof typeof GLOWS }) {
+/**
+ * The dark backdrop: a blue glow over a giant, tilted version of the receipt logo.
+ * `fixed` keeps it in place behind screens that scroll.
+ */
+export function BrandBackground({
+  glow,
+  fixed = false,
+}: {
+  glow: keyof typeof GLOWS;
+  fixed?: boolean;
+}) {
   return (
-    <div aria-hidden="true" className="absolute inset-0 -z-10">
+    <div aria-hidden="true" className={`${fixed ? 'fixed' : 'absolute'} inset-0 -z-10`}>
       <svg
         viewBox="0 0 390 844"
         preserveAspectRatio="xMidYMax slice"

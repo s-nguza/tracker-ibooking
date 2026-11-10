@@ -110,7 +110,7 @@ export function NewOrderScreen() {
 
   return (
     <div className={SCREEN}>
-      <header className="bg-canvas sticky top-0 z-10 grid grid-cols-[3rem_1fr_3rem] items-center px-4 py-3">
+      <header className="bg-night/85 sticky top-0 z-10 grid grid-cols-[3rem_1fr_3rem] items-center px-4 py-3 backdrop-blur">
         <Link to="/orders" aria-label="Close" className={ROUND_BUTTON}>
           <CloseIcon width={22} height={22} />
         </Link>
@@ -132,7 +132,7 @@ export function NewOrderScreen() {
                 onChange={changeContact}
               />
               {repeatCustomer && (
-                <p className="bg-brand-50 text-brand-700 mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold">
+                <p className="bg-brand-50 text-brand-300 mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold">
                   <CheckIcon className="shrink-0" width={16} height={16} strokeWidth={2.5} />
                   {describeRepeatCustomer(repeatCustomer)}
                 </p>

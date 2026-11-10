@@ -19,7 +19,7 @@ export function SpecialRequestField({
         maxLength={MAX_LENGTH}
         placeholder="e.g. only spice"
         onChange={(e) => onChange(e.target.value)}
-        className="border-line-strong focus:border-brand-600 mt-2 h-12 w-full rounded-2xl border bg-white px-3 font-semibold outline-none"
+        className="border-line-strong focus:border-brand-600 bg-surface mt-2 h-12 w-full rounded-2xl border px-3 font-semibold outline-none"
       />
     </label>
   );

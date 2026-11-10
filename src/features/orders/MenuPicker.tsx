@@ -31,8 +31,8 @@ export function MenuPicker({ menu, lines, onQuantityChange }: MenuPickerProps) {
               onClick={() => setCategory(value)}
               className={`h-11 rounded-full px-4 text-[15px] font-bold whitespace-nowrap ${
                 selected
-                  ? 'bg-ink text-white'
-                  : 'border-line text-muted hover:text-ink border bg-white'
+                  ? 'bg-brand-600 text-white'
+                  : 'border-line-strong text-muted hover:text-ink border'
               }`}
             >
               {value}
@@ -68,7 +68,7 @@ function MenuRow({
     return (
       <li className="flex items-center justify-between gap-4 py-4">
         <p className="text-muted/70 text-lg font-bold">{item.name}</p>
-        <p className="shrink-0 text-sm font-semibold text-red-700">Sold out today</p>
+        <p className="shrink-0 text-sm font-semibold text-red-300">Sold out today</p>
       </li>
     );
   }
@@ -87,7 +87,7 @@ function MenuRow({
           type="button"
           aria-label={`Add ${item.name}`}
           onClick={() => onQuantityChange(1)}
-          className="bg-brand-100 text-brand-700 hover:bg-brand-50 flex size-11 shrink-0 items-center justify-center rounded-full"
+          className="bg-brand-100 text-brand-300 hover:bg-brand-50 flex size-11 shrink-0 items-center justify-center rounded-full"
         >
           <PlusIcon strokeWidth={2.5} />
         </button>
@@ -97,11 +97,11 @@ function MenuRow({
             type="button"
             aria-label={`Remove one ${item.name}`}
             onClick={() => onQuantityChange(quantity - 1)}
-            className="text-brand-700 flex size-9 items-center justify-center rounded-full bg-white"
+            className="text-brand-300 bg-surface flex size-9 items-center justify-center rounded-full"
           >
             <MinusIcon strokeWidth={2.5} />
           </button>
-          <span className="text-brand-700 w-5 text-center text-lg font-bold" aria-live="polite">
+          <span className="text-brand-300 w-5 text-center text-lg font-bold" aria-live="polite">
             {quantity}
           </span>
           <button

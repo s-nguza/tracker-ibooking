@@ -15,8 +15,8 @@ interface OrderCardProps {
   alert?: string;
   /** A line under the items, e.g. why the order is paused. */
   note?: ReactNode;
-  /** Where the order sits in the queue, on the tab where staff pick what to start next. */
-  priority?: { label: string; urgent: boolean };
+  /** Extra grey tags after the categories, e.g. "Waiting 9 min". */
+  extraTags?: string[];
   /** Muted cards are out of the kitchen's hands; pending ones are quotes, dashed and without a total. */
   look?: 'active' | 'pending' | 'muted';
   /** Shown after the item list, e.g. "quoted just now". */
@@ -33,7 +33,7 @@ export function OrderCard({
   badge,
   alert,
   note,
-  priority,
+  extraTags,
   look = 'active',
   detail,
   showPayment = false,
@@ -86,7 +86,7 @@ export function OrderCard({
       </div>
 
       <div className="mt-3">
-        <OrderTags order={order} priority={priority} />
+        <OrderTags order={order} extraTags={extraTags} />
       </div>
 
       {order.specialRequest && look !== 'muted' && (
@@ -115,8 +115,8 @@ export function OrderCard({
 }
 
 const BUTTON_STYLES = {
-  primary: 'bg-ink text-white hover:bg-ink-soft',
-  secondary: 'border border-line-strong bg-white text-ink hover:bg-canvas',
+  primary: 'bg-brand-600 text-white hover:bg-brand-700',
+  secondary: 'border border-line-strong bg-surface text-ink hover:bg-canvas',
 };
 
 export function CardButton({

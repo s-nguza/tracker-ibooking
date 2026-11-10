@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ReceiptCheckIcon } from '../../components/icons';
 import { isValidEmail } from '../../domain/email';
-import { AuthBackground } from './AuthBackground';
+import { BrandBackground } from '../../components/BrandBackground';
 import { AUTH_SUBMIT, FIELD_INPUT, FIELD_LABEL, FORM_ERROR, TEXT_LINK } from './authStyles';
 
 export function LoginScreen() {
@@ -27,7 +27,7 @@ export function LoginScreen() {
 
   return (
     <div className="relative isolate min-h-full overflow-hidden bg-[#0b0f1a] text-white">
-      <AuthBackground glow="login" />
+      <BrandBackground glow="login" />
 
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 pt-26 pb-10">
         <header className="flex flex-col items-center text-center">

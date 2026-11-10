@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { BackIcon, ReceiptCheckIcon } from '../../components/icons';
 import { isValidEmail } from '../../domain/email';
 import { normalizeZaPhone } from '../../domain/phone';
-import { AuthBackground } from './AuthBackground';
+import { BrandBackground } from '../../components/BrandBackground';
 import { AUTH_SUBMIT, FIELD_INPUT, FIELD_LABEL, FORM_ERROR, TEXT_LINK } from './authStyles';
 
 const FORM_ID = 'register-form';
@@ -61,7 +61,7 @@ export function RegisterScreen() {
 
   return (
     <div className="relative isolate h-dvh overflow-hidden bg-[#0b0f1a] text-white">
-      <AuthBackground glow="register" />
+      <BrandBackground glow="register" />
 
       <main className="mx-auto flex h-full w-full max-w-md flex-col px-6 pt-5 pb-6">
         <header className="flex items-center gap-3">

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { AlertIcon, PlusIcon } from '../../components/icons';
+import { ClockIcon, PlusIcon } from '../../components/icons';
+import { Logo } from '../../components/Logo';
+import { ThemeToggle } from '../../components/ThemeToggle';
 import { SCREEN, SEGMENT_TRACK, segmentClass } from '../../components/styles';
 import {
   actualPrepMs,
@@ -14,16 +16,19 @@ import {
   minutesBetween,
   minutesLate,
   minutesToStart,
+  mustStartBy,
+  type CategoryStatus,
   type Order,
   type OrderStatus,
 } from '../../domain/orders';
-import { CategoryStatusRow } from './CategoryStatusRow';
 import { KITCHEN_CAPACITY } from './kitchenCapacity';
+import { CapacityTiles } from './CapacityTiles';
 import { CardButton, OrderCard } from './OrderCard';
 import { PauseDialog } from './PauseDialog';
 import { useOrders } from './ordersContext';
 import {
   BOARD_TABS,
+  formatClock,
   isBoardTab,
   STATUS_BADGE,
   type BadgeTone,
@@ -60,20 +65,34 @@ export function OrdersBoardScreen() {
   const inStatus = (status: OrderStatus) =>
     orders.filter((o) => o.status === status).sort(byQueueNumber);
   const preparing = inStatus('preparing');
-  const activeCount = inStatus('confirmed').length + preparing.length + inStatus('ready').length;
+  // Still in the kitchen's hands: waiting to start or cooking.
+  const inProgress = inStatus('confirmed').length + preparing.length;
+  const menu = useMenu();
+  const stations = kitchenStatus(cookedCategories(menu), preparing, KITCHEN_CAPACITY);
 
   return (
     <div className={SCREEN}>
-      <header className="flex items-start justify-between gap-3 px-5 pt-6">
+      <div className="flex items-center justify-between gap-3 px-5 pt-5">
+        <Logo className="w-44" />
+        <ThemeToggle />
+      </div>
+
+      <header className="flex items-start justify-between gap-3 px-5 pt-4">
         <div className="min-w-0">
           <p className="text-muted font-medium">{BUSINESS_NAME}</p>
-          <h1 className="text-3xl font-extrabold tracking-tight">Today’s orders</h1>
+          <h1 className="text-[1.75rem] leading-tight font-extrabold tracking-tight">
+            Today’s orders
+          </h1>
         </div>
-        <p className="shadow-card flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2 font-bold">
-          <span className="bg-ok-600 size-2.5 rounded-full" aria-hidden="true" />
-          {activeCount} active
+        <p className="border-line-strong bg-surface flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-bold">
+          <span className="bg-ok-600 size-2 rounded-full" aria-hidden="true" />
+          {inProgress} in progress
         </p>
       </header>
+
+      <div className="px-5 pt-4">
+        <CapacityTiles stations={stations} />
+      </div>
 
       <div className="px-5 pt-4">
         <nav role="tablist" aria-label="Order status" className={SEGMENT_TRACK}>
@@ -101,6 +120,7 @@ export function OrdersBoardScreen() {
             confirmed={inStatus('confirmed')}
             awaiting={inStatus('awaiting')}
             preparing={preparing}
+            stations={stations}
             now={now}
             onStarted={() => setTab('preparing')}
           />
@@ -127,12 +147,14 @@ function ConfirmedTab({
   confirmed,
   awaiting,
   preparing,
+  stations,
   now,
   onStarted,
 }: {
   confirmed: Order[];
   awaiting: Order[];
   preparing: Order[];
+  stations: readonly CategoryStatus[];
   now: number;
   /** Called after Start, so the screen can move to where the order's timer is running. */
   onStarted: () => void;
@@ -140,49 +162,44 @@ function ConfirmedTab({
   const { advance } = useOrders();
   const cooking = preparing.filter((o) => !currentPause(o));
   const paused = preparing.filter((o) => currentPause(o));
-  const menu = useMenu();
-  const stations = kitchenStatus(cookedCategories(menu), preparing, KITCHEN_CAPACITY);
-  const full = stations.filter((station) => station.full);
   const waitingFor = (order: Order) => fullCategories(order, stations);
+
+  /** Late beats everything; then whether its category is full; then when it must start. */
+  function startBadge(order: Order): { label: string; tone: BadgeTone } {
+    const blockedBy = waitingFor(order);
+    if (blockedBy.length > 0) {
+      return timeBadge(order, now, { label: `Waiting for ${blockedBy.join(', ')}`, tone: 'muted' });
+    }
+    return timeBadge(
+      order,
+      now,
+      minutesToStart(order, now) === 0
+        ? { label: 'Start now', tone: 'warn' }
+        : { label: `Start by ${formatClock(mustStartBy(order))}`, tone: 'muted' },
+    );
+  }
 
   return (
     <>
       {confirmed.length > 0 && (
-        <p className="bg-warn-100 text-warn-800 mb-3 flex gap-3 rounded-2xl px-4 py-3 font-semibold">
-          <AlertIcon className="mt-0.5 shrink-0" width={22} height={22} strokeWidth={2} />
+        <p className="bg-warn-100 text-warn-800 border-warn-800/25 mb-3 flex gap-3 rounded-2xl border px-4 py-3 text-[15px] font-semibold">
+          <ClockIcon className="mt-0.5 shrink-0" width={20} height={20} />
           <span>
-            {full.length > 0
-              ? `${full.map((s) => `${s.category} busy with ${queueList(s.cooking)}`).join(', ')}. Other categories have room.`
-              : 'Every category has room.'}{' '}
-            Tap Start when you’re ready for the next one.
+            Sorted by when each order must start. Longer orders rise to the top so everything is
+            ready on time.
           </span>
         </p>
       )}
-      <CategoryStatusRow stations={stations} />
 
       <ul className="space-y-3">
         {byPriority(confirmed, now, (o) => waitingFor(o).length > 0).map((order, index) => {
           const waited = minutesBetween(order.statusChangedAt, now);
-          const startIn = minutesToStart(order, now);
-          const blockedBy = waitingFor(order);
           return (
             <OrderCard
               key={order.id}
               order={order}
-              badge={timeBadge(order, now, {
-                label: `${Math.max(1, waited)} min`,
-                tone: waitTone(waited),
-              })}
-              priority={{
-                label: `Priority ${index + 1} · ${
-                  blockedBy.length > 0
-                    ? `waiting for ${blockedBy.join(', ')}`
-                    : startIn === 0
-                      ? 'start now'
-                      : `start within ${startIn} min`
-                }`,
-                urgent: blockedBy.length === 0 && startIn === 0,
-              }}
+              badge={startBadge(order)}
+              extraTags={[`Waiting ${Math.max(1, waited)} min`]}
               action={
                 // The top priority is the one to start next.
                 <CardButton
@@ -213,7 +230,7 @@ function ConfirmedTab({
         </p>
       )}
       {paused.length > 0 && (
-        <p className="text-warn-800 mt-1 text-center font-medium">
+        <p className="mt-1 text-center font-medium text-amber-300">
           {paused.length} paused · {queueList(paused)}
         </p>
       )}

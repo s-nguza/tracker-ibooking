@@ -13,10 +13,10 @@ export type BadgeTone = 'muted' | 'warn' | 'info' | 'ok' | 'alert' | 'quote';
 export const BADGE_TONES: Record<BadgeTone, string> = {
   muted: 'bg-track text-ink-soft',
   warn: 'bg-warn-100 text-warn-800',
-  info: 'bg-brand-100 text-brand-700',
+  info: 'bg-brand-100 text-brand-300',
   ok: 'bg-ok-100 text-ok-800',
-  alert: 'bg-red-100 text-red-700',
-  quote: 'bg-purple-100 text-purple-800',
+  alert: 'bg-red-500/15 text-red-300',
+  quote: 'bg-purple-500/20 text-purple-300',
 };
 
 export const PAYMENT_BADGE: Record<PaymentMethod, { label: string; tone: BadgeTone }> = {
@@ -149,6 +149,15 @@ export function describeEstimate(estimate: ReadyEstimate): string[] {
     if (ordersAhead === 0) return `${make} · free now`;
     const orders = ordersAhead === 1 ? '1 order' : `${ordersAhead} orders`;
     return `${make} + ${waitMinutes} min for ${orders} ahead`;
+  });
+}
+
+/** "08:30": a moment today on the 24-hour clock, as used in South Africa. */
+export function formatClock(ms: number): string {
+  return new Date(ms).toLocaleTimeString('en-ZA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   });
 }
 

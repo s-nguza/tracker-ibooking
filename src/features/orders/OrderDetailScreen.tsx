@@ -102,7 +102,7 @@ export function OrderDetailScreen() {
 
   return (
     <div className={SCREEN}>
-      <header className="bg-canvas sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-3">
+      <header className="bg-night/85 sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-3 backdrop-blur">
         <Link
           to={order ? boardUrlFor(order.status) : '/orders'}
           aria-label="Back to orders"
@@ -293,7 +293,7 @@ function OrderDetail({ order }: { order: Order }) {
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="text-brand-700 -my-2 h-10 px-2 font-bold hover:underline"
+                className="text-brand-300 -my-2 h-10 px-2 font-bold hover:underline"
               >
                 Edit order
               </button>
@@ -341,7 +341,7 @@ function OrderDetail({ order }: { order: Order }) {
               <p className="bg-ok-50 mt-2 rounded-2xl p-4 whitespace-pre-line">{message.text}</p>
             </section>
           ) : (
-            <p className="bg-brand-50 text-brand-700 flex gap-3 rounded-2xl p-4 font-semibold">
+            <p className="bg-brand-50 text-brand-300 flex gap-3 rounded-2xl p-4 font-semibold">
               <SpeakerIcon className="mt-0.5 shrink-0" />
               <span>
                 No message to send. Call out “order #{order.queueNumber}” or point them to the
@@ -352,15 +352,15 @@ function OrderDetail({ order }: { order: Order }) {
 
         {canCancel &&
           (confirmingCancel ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-              <p className="font-bold text-red-800">
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+              <p className="font-bold text-red-200">
                 Cancel order #{order.queueNumber}? This can’t be undone.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setConfirmingCancel(false)}
-                  className="border-line-strong h-12 rounded-2xl border bg-white font-bold"
+                  className="border-line-strong bg-surface h-12 rounded-2xl border font-bold"
                 >
                   Keep order
                 </button>
@@ -377,7 +377,7 @@ function OrderDetail({ order }: { order: Order }) {
             <button
               type="button"
               onClick={() => setConfirmingCancel(true)}
-              className="h-11 w-full font-bold text-red-700 hover:underline"
+              className="h-11 w-full font-bold text-red-300 hover:underline"
             >
               Cancel order
             </button>
@@ -419,7 +419,7 @@ function ProgressSteps({ status }: { status: OrderStatus }) {
             <div className={`h-1.5 rounded-full ${reached ? 'bg-brand-600' : 'bg-line-strong'}`} />
             <p
               className={`mt-1.5 text-[13px] ${
-                reached ? 'text-brand-700' : 'text-muted'
+                reached ? 'text-brand-300' : 'text-muted'
               } ${index === current ? 'font-extrabold' : 'font-semibold'}`}
             >
               {step.label}
@@ -446,7 +446,7 @@ function CustomerSummary({ order }: { order: Order }) {
       <div className="flex items-center gap-3">
         <span
           className={`flex size-12 shrink-0 items-center justify-center rounded-full font-extrabold ${
-            initials ? 'bg-brand-100 text-brand-700' : 'bg-canvas text-muted'
+            initials ? 'bg-brand-100 text-brand-300' : 'bg-canvas text-muted'
           }`}
         >
           {initials || <PersonIcon width={26} height={26} />}
@@ -495,7 +495,7 @@ function CustomerSummary({ order }: { order: Order }) {
           <button
             type="submit"
             disabled={!normalized}
-            className="bg-ink disabled:bg-track disabled:text-muted h-12 shrink-0 rounded-2xl px-5 font-bold text-white disabled:cursor-not-allowed"
+            className="bg-brand-600 hover:bg-brand-700 disabled:bg-track disabled:text-muted h-12 shrink-0 rounded-2xl px-5 font-bold text-white disabled:cursor-not-allowed"
           >
             Save
           </button>
@@ -533,7 +533,7 @@ function MessageActions({
             href={whatsAppLink(order.phone, text)}
             target="_blank"
             rel="noreferrer"
-            className="bg-ok-700 hover:bg-ok-800 flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white"
+            className="bg-ok-700 hover:bg-ok-600 flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white"
           >
             <ChatIcon className="shrink-0" />
             {updated
@@ -559,7 +559,7 @@ function MessageActions({
         )}
       </div>
       {copyState === 'failed' && (
-        <p className="mt-2 text-sm font-semibold text-red-700">
+        <p className="mt-2 text-sm font-semibold text-red-300">
           Couldn’t copy. Select the message above instead.
         </p>
       )}

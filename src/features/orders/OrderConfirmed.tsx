@@ -26,7 +26,7 @@ export function OrderConfirmed({ order, quoteCopied, onNewOrder }: OrderConfirme
 
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-6 pb-6 text-center">
-      <div className="bg-brand-100 text-brand-700 flex size-16 items-center justify-center rounded-full">
+      <div className="bg-brand-100 text-brand-300 flex size-16 items-center justify-center rounded-full">
         <CheckIcon width={32} height={32} strokeWidth={2.5} />
       </div>
       <h2 className="mt-4 text-2xl font-extrabold">
@@ -41,7 +41,7 @@ export function OrderConfirmed({ order, quoteCopied, onNewOrder }: OrderConfirme
           <>
             {quoteCopied === true && <p className="font-bold">Quote copied.</p>}
             {quoteCopied === false && (
-              <p className="font-bold text-red-700">
+              <p className="font-bold text-red-300">
                 Couldn’t copy the quote. You can copy it from the order screen.
               </p>
             )}
@@ -68,7 +68,7 @@ export function OrderConfirmed({ order, quoteCopied, onNewOrder }: OrderConfirme
             )}
             target="_blank"
             rel="noreferrer"
-            className="bg-ok-700 hover:bg-ok-800 mt-4 flex h-12 items-center justify-center rounded-2xl font-bold text-white"
+            className="bg-ok-700 hover:bg-ok-600 mt-4 flex h-12 items-center justify-center rounded-2xl font-bold text-white"
           >
             {isQuote ? 'Send quote on WhatsApp' : 'Send on WhatsApp'}
           </a>
