@@ -10,7 +10,7 @@ import {
   resumeOrder,
   type Order,
 } from '../../domain/orders';
-import { KITCHEN_CAPACITY } from './kitchenCapacity';
+import { useKitchenCapacity } from '../menu/menuContext';
 import { OrdersContext, type NewOrder, type OrdersStore } from './ordersContext';
 import { createSampleOrders } from './sampleOrders';
 
@@ -20,6 +20,7 @@ import { createSampleOrders } from './sampleOrders';
  */
 export function OrdersProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(() => createSampleOrders(Date.now()));
+  const capacity = useKitchenCapacity();
 
   /** `change` also gets today's full list, for anything that depends on the queue. */
   function update(
@@ -52,16 +53,14 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     advance: (orderId) =>
       update(orderId, (order, now, all) =>
         order.status === 'awaiting'
-          ? confirmQuote(order, all, KITCHEN_CAPACITY, now)
+          ? confirmQuote(order, all, capacity, now)
           : advanceOrder(order, now),
       ),
     cancel: (orderId) => update(orderId, cancelOrder),
     pause: (orderId, reason) => update(orderId, (order, now) => pauseOrder(order, reason, now)),
     resume: (orderId) => update(orderId, resumeOrder),
     editItems: (orderId, menu, lines) =>
-      update(orderId, (order, now, all) =>
-        editOrderItems(order, menu, lines, all, KITCHEN_CAPACITY, now),
-      ),
+      update(orderId, (order, now, all) => editOrderItems(order, menu, lines, all, capacity, now)),
     setSpecialRequest: (orderId, text) =>
       update(orderId, (order) => ({ ...order, specialRequest: text.trim() || undefined })),
     addPhone: (orderId, phone) => update(orderId, (order) => ({ ...order, phone })),

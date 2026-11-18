@@ -47,7 +47,7 @@ import {
 } from '../../domain/orders';
 import { formatZaPhone, normalizeZaPhone } from '../../domain/phone';
 import { copyText } from './copyText';
-import { KITCHEN_CAPACITY } from './kitchenCapacity';
+import { useKitchenCapacity } from '../menu/menuContext';
 import { MenuPicker } from './MenuPicker';
 import { useOrders } from './ordersContext';
 import {
@@ -577,22 +577,18 @@ function EditItems({
   onSave: (lines: OrderLines, specialRequest: string) => void;
 }) {
   const menu = useMenu();
+  const capacity = useKitchenCapacity();
   const { orders } = useOrders();
   const now = useNow();
   const [lines, setLines] = useState<OrderLines>(() => toOrderLines(order.lines));
   const [specialRequest, setSpecialRequest] = useState(order.specialRequest ?? '');
   const empty = orderItemCount(lines) === 0;
   // Run the real edit, so the time shown here is the time the order will get on save.
-  const minutes = minutesUntilReady(
-    editOrderItems(order, menu, lines, orders, KITCHEN_CAPACITY, now),
-    now,
-  );
+  const minutes = minutesUntilReady(editOrderItems(order, menu, lines, orders, capacity, now), now);
   // The line-by-line working only applies to quotes, which join the back of the queue.
   const breakdown =
     order.status === 'awaiting'
-      ? describeEstimate(
-          estimateReadyTime(buildOrderLines(menu, lines), orders, KITCHEN_CAPACITY, now),
-        )
+      ? describeEstimate(estimateReadyTime(buildOrderLines(menu, lines), orders, capacity, now))
       : [];
 
   return (

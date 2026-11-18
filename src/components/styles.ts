@@ -11,6 +11,10 @@ const BUTTON = 'flex h-14 w-full items-center justify-center rounded-2xl text-lg
 export const BUTTON_PRIMARY = `${BUTTON} bg-brand-600 text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-track disabled:text-muted`;
 export const BUTTON_OUTLINE = `${BUTTON} border border-line-strong text-ink hover:bg-canvas`;
 
+export const FIELD_LABEL = 'text-sm font-bold text-muted';
+export const TEXT_INPUT =
+  'h-12 w-full rounded-2xl border border-line-strong bg-surface px-3 text-base font-semibold text-ink outline-none placeholder:font-medium placeholder:text-muted/60 focus:border-brand-600';
+
 export const SEGMENT_TRACK = 'flex gap-1 rounded-2xl bg-track p-1';
 
 export function segmentClass(selected: boolean): string {

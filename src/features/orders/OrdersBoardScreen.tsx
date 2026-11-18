@@ -21,7 +21,7 @@ import {
   type Order,
   type OrderStatus,
 } from '../../domain/orders';
-import { KITCHEN_CAPACITY } from './kitchenCapacity';
+import { useKitchenCapacity } from '../menu/menuContext';
 import { CapacityTiles } from './CapacityTiles';
 import { CardButton, OrderCard } from './OrderCard';
 import { PauseDialog } from './PauseDialog';
@@ -68,13 +68,22 @@ export function OrdersBoardScreen() {
   // Still in the kitchen's hands: waiting to start or cooking.
   const inProgress = inStatus('confirmed').length + preparing.length;
   const menu = useMenu();
-  const stations = kitchenStatus(cookedCategories(menu), preparing, KITCHEN_CAPACITY);
+  const capacity = useKitchenCapacity();
+  const stations = kitchenStatus(cookedCategories(menu), preparing, capacity);
 
   return (
     <div className={SCREEN}>
       <div className="flex items-center justify-between gap-3 px-5 pt-5">
-        <Logo className="w-44" />
-        <ThemeToggle />
+        <Logo className="w-36 min-[380px]:w-44" />
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            to="/menu"
+            className="border-line-strong bg-surface hover:bg-track flex h-11 items-center rounded-full border px-4 font-bold"
+          >
+            Menu
+          </Link>
+          <ThemeToggle />
+        </div>
       </div>
 
       <header className="flex items-start justify-between gap-3 px-5 pt-4">

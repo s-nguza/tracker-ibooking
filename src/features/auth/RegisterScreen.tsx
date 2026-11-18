@@ -55,8 +55,8 @@ export function RegisterScreen() {
       setMessage(problem);
       return;
     }
-    // No backend yet, so nothing is saved.
-    navigate('/orders');
+    // No backend yet, so the account isn't saved. Next step: set up the menu.
+    navigate('/menu?setup=1');
   }
 
   return (

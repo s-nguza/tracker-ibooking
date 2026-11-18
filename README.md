@@ -8,16 +8,33 @@ customer a realistic ready time, and see what to cook next.
 
 > **Current stage:** frontend only. There is no backend yet, so orders are held in memory and
 > **reset when the page is refreshed**. The app opens with sample orders so there is something
-> to look at. The menu and business name are placeholders.
+> to look at. The business name is a placeholder. The menu is saved in the browser only (see
+> below).
 
 ## What it can do
+
+### Set up the menu
+
+After registering, the business sets up its menu. It's also reachable any time from the
+**Menu** button on the orders board.
+
+- **Start from the kasi menu** (46 items in 6 categories) and edit it, or **start from
+  scratch**.
+- **Categories:** a name, plus how many orders the kitchen can cook in that category at once.
+  Ready times use this number.
+- **Items:** name, price in rands (e.g. `35`, `35.50` or `R35,50`), time to make (0 for drinks
+  and anything handed over straight away), and **Sold out today**.
+- Every change saves straight away. Orders already taken keep the names and prices they were
+  sold at.
+- A category can only be deleted once it's empty, so items are never lost by accident.
+- The menu is saved in **this browser only** until there's a backend. It survives a refresh,
+  but not clearing site data, and isn't shared between phones.
 
 ### Take an order
 
 - **Three ways in:** Call needs a name, WhatsApp needs a number, and a walk-in needs neither
   and gets a queue number to call out.
-- **Menu:** every category is visible at once (Kotas, Bunny chow, Vetkoek & snacks, Plates,
-  Drinks, Extras).
+- **Menu:** every category from the business's menu is visible at once.
 - **Payment type:** staff must choose Cash or Card before the order can be saved. The app only
   records the choice. It doesn't take payments.
 - **Special requests:** an optional note such as "only spice".
@@ -79,10 +96,10 @@ Tap any order to open it.
 
 ## Before going live
 
-- **Kitchen capacity:** every category is set to cook 1 order at a time. Set the real numbers
-  in `src/features/orders/kitchenCapacity.ts`.
-- **Menu:** replace the placeholder data in `src/features/orders/kasi-menu.json`.
-- **Backend:** orders need to be saved somewhere (decided in Phase 1).
+- **Backend:** orders, the menu and accounts need to be saved somewhere (decided in Phase 1).
+  Today, orders reset on refresh and the menu lives in one browser.
+- **Kitchen capacity:** the kasi menu starts every category at 1 order at a time. Each business
+  should set its real numbers on the Menu screen.
 
 ## Stack
 
