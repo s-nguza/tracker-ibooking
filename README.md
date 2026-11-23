@@ -135,6 +135,10 @@ The backend is [Supabase](https://supabase.com), on the free plan.
    login. It only reads, never changes anything.
 6. Restart `npm run dev`.
 
+With keys set, Register creates a real account and business, Login and Log out work, and the
+order screens need a login. Each business only sees its own data. Orders and the menu still
+live on the device for now; moving them to Supabase is the next phase.
+
 Free-plan limits to know: a project pauses after 7 days without use (restore it from the
 dashboard), and there are no automatic backups. Move to Pro ($25/month) once a real business
 relies on it.

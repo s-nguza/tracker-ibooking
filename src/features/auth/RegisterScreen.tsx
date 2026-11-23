@@ -4,6 +4,7 @@ import { BackIcon, ReceiptCheckIcon } from '../../components/icons';
 import { isValidEmail } from '../../domain/email';
 import { normalizeZaPhone } from '../../domain/phone';
 import { BrandBackground } from '../../components/BrandBackground';
+import { useAuth } from './authContext';
 import { AUTH_SUBMIT, FIELD_INPUT, FIELD_LABEL, FORM_ERROR, TEXT_LINK } from './authStyles';
 
 const FORM_ID = 'register-form';
@@ -13,6 +14,14 @@ const BUSINESS_TYPES = ['Kota & vetkoek', 'Kasi food store', 'Takeaway', 'Restau
 const COMING_SOON_TYPES = ['Barber', 'Hair salon'] as const;
 
 type BusinessType = (typeof BUSINESS_TYPES)[number];
+
+/** "Kota & vetkoek" → "kota-vetkoek", the form saved with the business. */
+function toSlug(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 const CHIP = 'flex h-12 items-center gap-2 rounded-2xl border px-4 text-sm';
 
@@ -36,6 +45,9 @@ export function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirmEmailSent, setConfirmEmailSent] = useState(false);
+  const { register } = useAuth();
 
   function findProblem(): string | null {
     if (!businessName.trim()) return 'Enter your business name.';
@@ -48,15 +60,56 @@ export function RegisterScreen() {
     return null;
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (busy) return;
     const problem = findProblem();
-    if (problem) {
-      setMessage(problem);
+    const e164 = normalizeZaPhone(phone);
+    if (problem || !e164) {
+      setMessage(problem ?? 'Enter a valid South African cell number.');
       return;
     }
-    // No backend yet, so the account isn't saved. Next step: set up the menu.
+    setMessage('');
+    setBusy(true);
+    const result = await register({
+      businessName,
+      businessType: toSlug(businessType),
+      ownerName,
+      phone: e164,
+      email,
+      password,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setMessage(result.message);
+      return;
+    }
+    if (result.needsEmailConfirmation) {
+      setConfirmEmailSent(true);
+      return;
+    }
+    // Next step: set up the menu.
     navigate('/menu?setup=1');
+  }
+
+  if (confirmEmailSent) {
+    return (
+      <div className="relative isolate flex h-dvh items-center overflow-hidden bg-[#0b0f1a] text-white">
+        <BrandBackground glow="register" />
+        <main className="mx-auto w-full max-w-md px-6 text-center">
+          <h1 className="text-[1.75rem] leading-tight font-extrabold tracking-tight">
+            Check your email
+          </h1>
+          <p className="mt-3 font-medium text-[#aab1c2]">
+            We sent a link to <strong className="text-white">{email.trim()}</strong>. Open it to
+            confirm your account, then log in to set up your menu.
+          </p>
+          <Link to="/" className={`${AUTH_SUBMIT} mt-8 flex items-center justify-center`}>
+            Go to log in
+          </Link>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -196,8 +249,13 @@ export function RegisterScreen() {
               {message}
             </p>
           )}
-          <button type="submit" form={FORM_ID} className={AUTH_SUBMIT}>
-            Create account
+          <button
+            type="submit"
+            form={FORM_ID}
+            disabled={busy}
+            className={`${AUTH_SUBMIT} disabled:cursor-wait disabled:opacity-70`}
+          >
+            {busy ? 'Creating your account…' : 'Create account'}
           </button>
           <p className="mt-4 text-center text-sm font-medium text-[#8b93a7]">
             Already registered?{' '}

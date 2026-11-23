@@ -1,18 +1,22 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate } from 'react-router';
 import { ReceiptCheckIcon } from '../../components/icons';
 import { isValidEmail } from '../../domain/email';
 import { BrandBackground } from '../../components/BrandBackground';
+import { useAuth } from './authContext';
 import { AUTH_SUBMIT, FIELD_INPUT, FIELD_LABEL, FORM_ERROR, TEXT_LINK } from './authStyles';
 
 export function LoginScreen() {
   const navigate = useNavigate();
+  const { state, logIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (busy) return;
     if (!isValidEmail(email)) {
       setMessage('Enter a valid business email.');
       return;
@@ -21,9 +25,19 @@ export function LoginScreen() {
       setMessage('Enter your password.');
       return;
     }
-    // No backend yet, so any valid-looking details get in.
+    setMessage('');
+    setBusy(true);
+    const result = await logIn(email, password);
+    setBusy(false);
+    if (!result.ok) {
+      setMessage(result.message);
+      return;
+    }
     navigate('/orders');
   }
+
+  // Already signed in on this device: skip straight to the orders.
+  if (state.status === 'ready') return <Navigate to="/orders" replace />;
 
   return (
     <div className="relative isolate min-h-full overflow-hidden bg-[#0b0f1a] text-white">
@@ -87,8 +101,12 @@ export function LoginScreen() {
             </p>
           )}
 
-          <button type="submit" className={`mt-6 ${AUTH_SUBMIT}`}>
-            Log in
+          <button
+            type="submit"
+            disabled={busy}
+            className={`mt-6 ${AUTH_SUBMIT} disabled:cursor-wait disabled:opacity-70`}
+          >
+            {busy ? 'Logging in…' : 'Log in'}
           </button>
 
           <p className="mt-5 text-center text-sm leading-relaxed font-medium text-[#8b93a7]">

@@ -65,7 +65,7 @@ import {
 import { OrderTags } from './OrderTags';
 import { PauseDialog } from './PauseDialog';
 import { PrepTimer } from './PrepTimer';
-import { BUSINESS_NAME } from './sampleOrders';
+import { useBusinessName } from './useBusinessName';
 import { SpecialRequestField, SpecialRequestNote } from './SpecialRequest';
 import { useMenu } from './useMenu';
 import { useNow } from './useNow';
@@ -79,7 +79,10 @@ const NEXT_STEP: Partial<Record<OrderStatus, string>> = {
 };
 
 /** The message that fits this step, or null once there's nothing left to say. */
-function customerMessage(order: Order): { label: string; text: string } | null {
+function customerMessage(
+  order: Order,
+  businessName: string,
+): { label: string; text: string } | null {
   switch (order.status) {
     case 'awaiting':
       return { label: 'Quote message', text: orderQuoteMessage(order) };
@@ -87,7 +90,7 @@ function customerMessage(order: Order): { label: string; text: string } | null {
       return { label: 'Order message', text: orderConfirmationMessage(order) };
     case 'preparing':
     case 'ready':
-      return { label: 'Ready message', text: orderReadyMessage(order, BUSINESS_NAME) };
+      return { label: 'Ready message', text: orderReadyMessage(order, businessName) };
     default:
       return null;
   }
@@ -140,6 +143,7 @@ export function OrderDetailScreen() {
 
 function OrderDetail({ order }: { order: Order }) {
   const { advance, cancel, editItems, resume, setSpecialRequest } = useOrders();
+  const businessName = useBusinessName();
   const navigate = useNavigate();
   const now = useNow();
   const menu = useMenu();
@@ -177,7 +181,7 @@ function OrderDetail({ order }: { order: Order }) {
           label: 'Updated order message',
           text: orderUpdatedMessage({ ...order, readyMinutes: minutesLeft }),
         }
-      : customerMessage(order);
+      : customerMessage(order, businessName);
   const late = minutesLate(order, now);
   const took = actualPrepMs(order);
   // Back to the tab the order was listed under, so the next one is right there.

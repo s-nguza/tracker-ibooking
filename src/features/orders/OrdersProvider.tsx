@@ -10,6 +10,7 @@ import {
   resumeOrder,
   type Order,
 } from '../../domain/orders';
+import { isSupabaseConfigured } from '../../lib/supabase';
 import { useKitchenCapacity } from '../menu/menuContext';
 import { OrdersContext, type NewOrder, type OrdersStore } from './ordersContext';
 import { createSampleOrders } from './sampleOrders';
@@ -19,7 +20,10 @@ import { createSampleOrders } from './sampleOrders';
  * backend is chosen (Phase 1); this is the one place that will change then.
  */
 export function OrdersProvider({ children }: { children: ReactNode }) {
-  const [orders, setOrders] = useState<Order[]>(() => createSampleOrders(Date.now()));
+  // Sample orders only in the offline demo; a real business starts with an empty board.
+  const [orders, setOrders] = useState<Order[]>(() =>
+    isSupabaseConfigured ? [] : createSampleOrders(Date.now()),
+  );
   const capacity = useKitchenCapacity();
 
   /** `change` also gets today's full list, for anything that depends on the queue. */

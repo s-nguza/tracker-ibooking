@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ClockIcon, PlusIcon } from '../../components/icons';
 import { Logo } from '../../components/Logo';
 import { ThemeToggle } from '../../components/ThemeToggle';
@@ -35,7 +35,8 @@ import {
   type BoardTab,
 } from './orderStatusUi';
 import { PrepTimer } from './PrepTimer';
-import { BUSINESS_NAME } from './sampleOrders';
+import { useBusinessName } from './useBusinessName';
+import { useAuth } from '../auth/authContext';
 import { useMenu } from './useMenu';
 import { useNow } from './useNow';
 
@@ -70,6 +71,9 @@ export function OrdersBoardScreen() {
   const menu = useMenu();
   const capacity = useKitchenCapacity();
   const stations = kitchenStatus(cookedCategories(menu), preparing, capacity);
+  const businessName = useBusinessName();
+  const { state: auth, logOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className={SCREEN}>
@@ -88,7 +92,21 @@ export function OrdersBoardScreen() {
 
       <header className="flex items-start justify-between gap-3 px-5 pt-4">
         <div className="min-w-0">
-          <p className="text-muted font-medium">{BUSINESS_NAME}</p>
+          <p className="text-muted flex flex-wrap items-baseline gap-x-2 font-medium">
+            <span className="min-w-0 truncate">{businessName}</span>
+            {auth.status === 'ready' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await logOut();
+                  navigate('/', { replace: true });
+                }}
+                className="text-brand-300 text-sm font-bold hover:underline"
+              >
+                Log out
+              </button>
+            )}
+          </p>
           <h1 className="text-[1.75rem] leading-tight font-extrabold tracking-tight">
             Today’s orders
           </h1>
