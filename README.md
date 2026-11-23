@@ -114,6 +114,31 @@ npm install
 npm run dev    # app at http://localhost:5173
 ```
 
+Without Supabase keys the app runs as an offline demo (sample orders, menu saved in the
+browser).
+
+## Backend setup (Supabase)
+
+The backend is [Supabase](https://supabase.com), on the free plan.
+
+1. Create a free account and a new project. Pick the region closest to South Africa that's
+   offered, and save the database password somewhere safe.
+2. In the project, open **SQL Editor → New query**, paste the whole of
+   `supabase/migrations/20261118000000_initial_schema.sql`, and click **Run**. This creates the
+   tables, the security rules (each business only sees its own data) and live updates.
+3. Open **Project Settings → API** and copy the **Project URL** and the **anon / publishable**
+   key.
+4. Copy `.env.example` to `.env.local` and paste both values in. Never use the
+   `service_role` / secret key in the app.
+5. Run `npm run check:supabase`. It connects with your keys as a logged-out visitor and checks
+   that the project answers, all 7 tables exist, and they show and allow nothing without a
+   login. It only reads, never changes anything.
+6. Restart `npm run dev`.
+
+Free-plan limits to know: a project pauses after 7 days without use (restore it from the
+dashboard), and there are no automatic backups. Move to Pro ($25/month) once a real business
+relies on it.
+
 ## Scripts
 
 | Script                 | Does                           |

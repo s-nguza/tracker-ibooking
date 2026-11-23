@@ -20,3 +20,6 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 *.sw?
+
+# The template is meant to be shared
+!.env.example
