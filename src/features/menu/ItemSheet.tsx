@@ -10,6 +10,7 @@ import {
   type MenuEntry,
 } from '../../domain/menu';
 import { Sheet } from './Sheet';
+import { newId } from '../../domain/ids';
 
 /** Add a new item, or change or delete an existing one. */
 export function ItemSheet({
@@ -52,7 +53,7 @@ export function ItemSheet({
     const priceCents = parseRands(price);
     if (problem || priceCents === null) return;
     onSave({
-      id: item?.id ?? crypto.randomUUID(),
+      id: item?.id ?? newId(),
       categoryId: category,
       name: name.trim(),
       priceCents,

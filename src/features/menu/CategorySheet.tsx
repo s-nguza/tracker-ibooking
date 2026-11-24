@@ -3,6 +3,7 @@ import { MinusIcon, PlusIcon } from '../../components/icons';
 import { BUTTON_OUTLINE, BUTTON_PRIMARY, FIELD_LABEL, TEXT_INPUT } from '../../components/styles';
 import { categoryProblem, LIMITS, type Menu, type MenuCategory } from '../../domain/menu';
 import { Sheet } from './Sheet';
+import { newId } from '../../domain/ids';
 
 /** Add a new category, or rename one, change its capacity, or delete it when empty. */
 export function CategorySheet({
@@ -37,7 +38,7 @@ export function CategorySheet({
           e.preventDefault();
           setTried(true);
           if (problem) return;
-          onSave({ id: category?.id ?? crypto.randomUUID(), name: name.trim(), capacity });
+          onSave({ id: category?.id ?? newId(), name: name.trim(), capacity });
         }}
       >
         <label className="block">

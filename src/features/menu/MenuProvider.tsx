@@ -6,6 +6,7 @@ import { fetchMenu, saveMenuChanges } from './menuApi';
 import { MenuContext, type MenuStore } from './menuContext';
 import { loadMenu, storeMenu } from './menuStorage';
 import { KASI_MENU } from './templates';
+import { newId } from '../../domain/ids';
 
 const OFFLINE =
   'Couldn’t save the menu. Check your internet connection; your last change may be lost.';
@@ -72,8 +73,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     saveError,
     setMenu,
     // The template's ids are readable names; the database needs proper unique ids.
-    start: (template) =>
-      setMenu(businessId ? withNewIds(template, () => crypto.randomUUID()) : template),
+    start: (template) => setMenu(businessId ? withNewIds(template, newId) : template),
   };
 
   return <MenuContext value={store}>{children}</MenuContext>;

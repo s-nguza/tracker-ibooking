@@ -18,6 +18,7 @@ import { fetchOrders, insertOrder, saveOrderChanges } from './ordersApi';
 import { OrdersContext, type NewOrder, type OrdersStore } from './ordersContext';
 import { createSampleOrders } from './sampleOrders';
 import { useNow } from './useNow';
+import { newId } from '../../domain/ids';
 
 const NOT_SAVED =
   'Couldn’t save to the server. Check your internet connection; the board will catch up when it’s back.';
@@ -123,7 +124,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       const day = businessDayOf(now);
       const order: Order = {
         ...newOrder,
-        id: crypto.randomUUID(),
+        id: newId(),
         businessDay: day,
         queueNumber: nextQueueNumber(
           current.current.filter((o) => !o.businessDay || o.businessDay === day),
