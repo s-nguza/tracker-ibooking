@@ -7,8 +7,14 @@ export interface MenuStore {
   saved: Menu | null;
   /** What the app sells from: the saved menu, or the kasi menu until one is saved. */
   menu: Menu;
-  /** Saves and starts using it. False if the browser wouldn't keep it. */
-  setMenu: (menu: Menu) => boolean;
+  /** True while the business's menu is still loading from the server. */
+  loading: boolean;
+  /** Why the last change didn't save, or null. */
+  saveError: string | null;
+  /** Shows the change straight away and saves it (to Supabase, or this browser in the demo). */
+  setMenu: (menu: Menu) => void;
+  /** Starts the business's menu from a template, such as the kasi menu, or from empty. */
+  start: (template: Menu) => void;
 }
 
 export const MenuContext = createContext<MenuStore | null>(null);

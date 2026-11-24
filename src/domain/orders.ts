@@ -221,6 +221,8 @@ export type PaymentMethod = 'cash' | 'card';
 export interface Order {
   id: string;
   queueNumber: number;
+  /** The day it was taken, South African time ("2026-11-23"). Queue numbers restart each day. */
+  businessDay?: string;
   channel: OrderChannel;
   /** How the customer said they'll pay, so staff know what to collect at pickup. */
   paymentMethod: PaymentMethod;

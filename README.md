@@ -6,10 +6,10 @@ currently track orders on paper. Barbers and hairdressers come in a later phase.
 Staff use it on a phone to take orders that come in by call, WhatsApp or walk-in, tell each
 customer a realistic ready time, and see what to cook next.
 
-> **Current stage:** frontend only. There is no backend yet, so orders are held in memory and
-> **reset when the page is refreshed**. The app opens with sample orders so there is something
-> to look at. The business name is a placeholder. The menu is saved in the browser only (see
-> below).
+> **Current stage:** pilot. With Supabase set up (see [Backend setup](#backend-setup-supabase)),
+> owners register a business, log in, and their menu and orders are saved and shared live
+> between phones. Without Supabase keys the app runs as an offline demo: sample orders held in
+> memory (reset on refresh), a placeholder business name, and the menu saved in the browser.
 
 ## What it can do
 
@@ -22,13 +22,13 @@ After registering, the business sets up its menu. It's also reachable any time f
   scratch**.
 - **Categories:** a name, plus how many orders the kitchen can cook in that category at once.
   Ready times use this number.
-- **Items:** name, price in rands (e.g. `35`, `35.50` or `R35,50`), time to make (0 for drinks
-  and anything handed over straight away), and **Sold out today**.
+- **Items:** name, price in rands (e.g. `35`, `35.50` or `R35,50`; `0` for free extras), time
+  to make (0 for drinks and anything handed over straight away), and **Sold out today**.
 - Every change saves straight away. Orders already taken keep the names and prices they were
   sold at.
 - A category can only be deleted once it's empty, so items are never lost by accident.
-- The menu is saved in **this browser only** until there's a backend. It survives a refresh,
-  but not clearing site data, and isn't shared between phones.
+- Signed in, the menu is saved in Supabase and changes show on the business's other phones
+  within a few seconds. In the offline demo it's saved in this browser only.
 
 ### Take an order
 
@@ -96,8 +96,8 @@ Tap any order to open it.
 
 ## Before going live
 
-- **Backend:** orders, the menu and accounts need to be saved somewhere (decided in Phase 1).
-  Today, orders reset on refresh and the menu lives in one browser.
+- **Supabase plan:** the free plan pauses a project after 7 days without use and has no backups.
+  Move to Pro ($25/month) once a business depends on it.
 - **Kitchen capacity:** the kasi menu starts every category at 1 order at a time. Each business
   should set its real numbers on the Menu screen.
 
@@ -125,7 +125,10 @@ The backend is [Supabase](https://supabase.com), on the free plan.
    offered, and save the database password somewhere safe.
 2. In the project, open **SQL Editor → New query**, paste the whole of
    `supabase/migrations/20261118000000_initial_schema.sql`, and click **Run**. This creates the
-   tables, the security rules (each business only sees its own data) and live updates.
+   tables, the security rules (each business only sees its own data) and live updates. Then do
+   the same with each later file in `supabase/migrations`, in date order (e.g.
+   `20261123000000_menu_item_limits.sql`, which allows free extras and longer item names). Run
+   each file once only.
 3. Open **Project Settings → API** and copy the **Project URL** and the **anon / publishable**
    key.
 4. Copy `.env.example` to `.env.local` and paste both values in. Never use the
@@ -136,8 +139,8 @@ The backend is [Supabase](https://supabase.com), on the free plan.
 6. Restart `npm run dev`.
 
 With keys set, Register creates a real account and business, Login and Log out work, and the
-order screens need a login. Each business only sees its own data. Orders and the menu still
-live on the device for now; moving them to Supabase is the next phase.
+order screens need a login. Each business only sees its own data. The menu and
+today's orders are saved in Supabase and update live on every phone signed in to the business.
 
 Free-plan limits to know: a project pauses after 7 days without use (restore it from the
 dashboard), and there are no automatic backups. Move to Pro ($25/month) once a real business

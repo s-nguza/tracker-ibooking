@@ -29,7 +29,7 @@ export interface Menu {
 }
 
 export const LIMITS = {
-  itemName: 40,
+  itemName: 60,
   categoryName: 30,
   maxPriceCents: 1_000_000, // R10 000
   maxPrepMinutes: 180,
@@ -65,12 +65,13 @@ export function menuCapacity(menu: Menu): CategoryCapacity {
   return Object.fromEntries(menu.categories.map((c) => [c.name, c.capacity]));
 }
 
-/** "35", "35.5", "R35,50" → 3550 cents. Null when it isn't a usable price. */
+/** "35", "35.5", "R35,50" → 3550 cents; "0" for free. Null when it isn't a usable price. */
 export function parseRands(text: string): Cents | null {
   const cleaned = text.trim().replace(/^r\s*/i, '').replace(',', '.').replace(/\s/g, '');
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null;
   const cents = Math.round(Number(cleaned) * 100);
-  return cents > 0 && cents <= LIMITS.maxPriceCents ? cents : null;
+  // 0 is allowed, for free extras like sauce.
+  return cents >= 0 && cents <= LIMITS.maxPriceCents ? cents : null;
 }
 
 /** 3550 → "35.50", for putting a saved price back in the price field. */
@@ -94,7 +95,7 @@ export function itemProblem(
       other.id !== item.id && other.categoryId === item.categoryId && same(other.name, name),
   );
   if (duplicate) return 'There is already an item with this name in this category.';
-  if (parseRands(item.price) === null) return 'Enter a price, like 35 or 35.50.';
+  if (parseRands(item.price) === null) return 'Enter a price, like 35 or 35.50 (0 if it’s free).';
   const minutes = Number(item.prepMinutes);
   if (!/^\d+$/.test(item.prepMinutes.trim()) || minutes > LIMITS.maxPrepMinutes) {
     return `Enter the minutes it takes to make, from 0 to ${LIMITS.maxPrepMinutes}.`;
@@ -155,4 +156,20 @@ export function removeCategory(menu: Menu, categoryId: string): Menu {
 /** True when there's at least one item to sell. */
 export function hasItems(menu: Menu): boolean {
   return menu.items.length > 0;
+}
+
+/**
+ * The same menu with every category and item given a new id from `newId`, keeping
+ * items linked to their categories. Used to copy the kasi template into a business.
+ */
+export function withNewIds(menu: Menu, newId: () => string): Menu {
+  const categoryIds = new Map(menu.categories.map((c) => [c.id, newId()]));
+  return {
+    categories: menu.categories.map((c) => ({ ...c, id: categoryIds.get(c.id)! })),
+    items: menu.items.map((i) => ({
+      ...i,
+      id: newId(),
+      categoryId: categoryIds.get(i.categoryId) ?? i.categoryId,
+    })),
+  };
 }

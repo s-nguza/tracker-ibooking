@@ -27,15 +27,14 @@ type OpenSheet =
  * registering (`?setup=1`) and from the orders board. Every change saves at once.
  */
 export function MenuScreen() {
-  const { saved, setMenu } = useMenuStore();
+  const { saved, setMenu, start, loading, saveError } = useMenuStore();
   const [params] = useSearchParams();
   const setup = params.get('setup') === '1';
   const navigate = useNavigate();
   const [sheet, setSheet] = useState<OpenSheet | null>(null);
-  const [saveFailed, setSaveFailed] = useState(false);
 
   function save(next: Menu) {
-    setSaveFailed(!setMenu(next));
+    setMenu(next);
     setSheet(null);
   }
 
@@ -51,15 +50,18 @@ export function MenuScreen() {
       </header>
 
       <main className="flex-1 space-y-4 px-5 pt-1 pb-6">
-        {saveFailed && (
+        {saveError && (
           <p role="alert" className="rounded-2xl bg-red-500/10 p-4 font-semibold text-red-200">
-            This browser wouldn’t save the menu, so it will be lost on refresh. Private browsing can
-            cause this.
+            {saveError}
           </p>
         )}
 
-        {saved === null ? (
-          <StartChoice onPick={save} />
+        {loading ? (
+          <p role="status" className="text-muted py-10 text-center font-semibold">
+            Loading your menu…
+          </p>
+        ) : saved === null ? (
+          <StartChoice onPick={start} />
         ) : (
           <MenuEditor menu={saved} setup={setup} onOpen={setSheet} />
         )}
@@ -80,7 +82,7 @@ export function MenuScreen() {
           )}
         </footer>
       )}
-      {setup && saved === null && (
+      {setup && !loading && saved === null && (
         <div className="px-5 pb-6 text-center">
           <Link to="/orders" className="text-muted hover:text-ink font-bold">
             Skip for now
@@ -149,8 +151,8 @@ function MenuEditor({
     <>
       <p className="text-muted text-sm">
         {setup
-          ? 'Tap an item to change its name or price. Changes save on this device straight away.'
-          : 'Changes save on this device straight away. Orders already taken keep their prices.'}
+          ? 'Tap an item to change its name or price. Changes save straight away.'
+          : 'Changes save straight away. Orders already taken keep their prices.'}
       </p>
 
       {menu.categories.length === 0 && (
@@ -199,7 +201,9 @@ function MenuEditor({
                         )}
                       </span>
                     </span>
-                    <span className="shrink-0 font-bold">{formatCents(item.priceCents)}</span>
+                    <span className="shrink-0 font-bold">
+                      {item.priceCents === 0 ? 'Free' : formatCents(item.priceCents)}
+                    </span>
                   </button>
                 </li>
               ))}

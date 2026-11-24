@@ -54,7 +54,7 @@ function timeBadge(order: Order, now: number, onTime: { label: string; tone: Bad
 }
 
 export function OrdersBoardScreen() {
-  const { orders } = useOrders();
+  const { orders, loading, syncError } = useOrders();
   // The tab lives in the URL so returning from an order lands on the same tab.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -142,7 +142,20 @@ export function OrdersBoardScreen() {
       </div>
 
       <main className="flex-1 px-5 py-3">
-        {tab === 'confirmed' && (
+        {syncError && (
+          <p
+            role="alert"
+            className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 font-semibold text-red-200"
+          >
+            {syncError}
+          </p>
+        )}
+        {loading ? (
+          <p role="status" className="text-muted py-12 text-center font-semibold">
+            Loading today’s orders…
+          </p>
+        ) : null}
+        {!loading && tab === 'confirmed' && (
           <ConfirmedTab
             confirmed={inStatus('confirmed')}
             awaiting={inStatus('awaiting')}
@@ -152,9 +165,9 @@ export function OrdersBoardScreen() {
             onStarted={() => setTab('preparing')}
           />
         )}
-        {tab === 'preparing' && <PreparingTab orders={preparing} now={now} />}
-        {tab === 'ready' && <ReadyTab orders={inStatus('ready')} now={now} />}
-        {tab === 'done' && <DoneTab orders={inStatus('done').reverse()} now={now} />}
+        {!loading && tab === 'preparing' && <PreparingTab orders={preparing} now={now} />}
+        {!loading && tab === 'ready' && <ReadyTab orders={inStatus('ready')} now={now} />}
+        {!loading && tab === 'done' && <DoneTab orders={inStatus('done').reverse()} now={now} />}
       </main>
 
       <div className="pointer-events-none sticky bottom-0 z-10 flex justify-end p-5">

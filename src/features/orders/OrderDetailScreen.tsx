@@ -99,7 +99,7 @@ function customerMessage(
 /** Everything about one order, plus whatever can be done with it at its current step. */
 export function OrderDetailScreen() {
   const { orderId } = useParams();
-  const { orders } = useOrders();
+  const { orders, loading } = useOrders();
   const order = orders.find((o) => o.id === orderId);
   const badge = order && orderBadge(order);
 
@@ -130,7 +130,9 @@ export function OrderDetailScreen() {
       ) : (
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-5 text-center">
           <p className="text-muted">
-            This order doesn’t exist any more. Orders reset when the page is refreshed.
+            {loading
+              ? 'Loading the order…'
+              : 'This order isn’t on today’s board. It may be from an earlier day.'}
           </p>
           <Link to="/orders" className={`${BUTTON_PRIMARY} max-w-60`}>
             Back to orders

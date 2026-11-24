@@ -119,7 +119,12 @@ export function NewOrderScreen() {
       </header>
 
       {confirmed ? (
-        <OrderConfirmed order={confirmed} quoteCopied={quoteCopied} onNewOrder={startNextOrder} />
+        <OrderConfirmed
+          // The saved copy, in case another phone took this queue number and it moved on.
+          order={orders.find((o) => o.id === confirmed.id) ?? confirmed}
+          quoteCopied={quoteCopied}
+          onNewOrder={startNextOrder}
+        />
       ) : (
         <>
           <main className="flex-1 space-y-5 px-5 pt-1 pb-6">

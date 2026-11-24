@@ -9,6 +9,10 @@ export type NewOrder = Omit<
 
 export interface OrdersStore {
   orders: readonly Order[];
+  /** True until today's orders have loaded from the server. */
+  loading: boolean;
+  /** Why the last change didn't reach the server, or null. */
+  syncError: string | null;
   /** The number the next order will get. */
   nextQueueNumber: number;
   /** With `asQuote`, the order waits for the customer's yes instead of going straight to the queue. */
